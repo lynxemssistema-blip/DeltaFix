@@ -32,7 +32,11 @@ import {
   ListOrdered,
   History,
   TrendingDown,
-  Sparkles
+  Sparkles,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 interface EngineeringConfiguratorProps {
@@ -50,9 +54,11 @@ export function EngineeringConfigurator({ initialProducts = [] }: EngineeringCon
   const [tratamentoSuperficial, setTratamentoSuperficial] = useState<SurfaceFinish>('Zincado Branco (ZB)');
   const [codigoInternoDelta, setCodigoInternoDelta] = useState<string>('PF-ESP-M20-80');
 
-  // 2. Active Tab State
+  // 2. Active Tab State & Layout Controls
   const [activeTab, setActiveTab] = useState<'cad' | 'bom' | 'routing' | 'ai' | 'history'>('cad');
   const [cadMode, setCadMode] = useState<'nanquim_a3' | 'blueprint'>('nanquim_a3');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [showKpis, setShowKpis] = useState(true);
 
   // 3. Persistence & History State
   const [savedProducts, setSavedProducts] = useState<ProductItem[]>(initialProducts);
@@ -211,79 +217,140 @@ export function EngineeringConfigurator({ initialProducts = [] }: EngineeringCon
   };
 
   return (
-    <div className="flex flex-col space-y-6">
-      {/* Top Banner / KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {/* SKU KPI */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-mono text-slate-400 uppercase font-semibold">SKU Inteligente</span>
-            <Sparkles className="w-4 h-4 text-cyan-400" />
-          </div>
-          <div className="text-sm font-mono font-bold text-cyan-300 truncate mt-2" title={skuGerado}>
-            {skuGerado}
-          </div>
-          <div className="text-[10px] text-slate-500 font-mono mt-1">Norma {standardCode} • Métrica</div>
-        </div>
+    <div className="flex flex-col space-y-4">
+      {/* Top Telemetry Bar & View Controls */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900/80 border border-slate-800 px-4 py-2 rounded-xl">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+              isSidebarCollapsed
+                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
+                : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
+            }`}
+            title={isSidebarCollapsed ? 'Restaurar Painel de Parâmetros' : 'Ocultar Painel para Ver Prancha em Tela Cheia'}
+          >
+            {isSidebarCollapsed ? <PanelLeftOpen className="w-3.5 h-3.5 text-amber-400" /> : <PanelLeftClose className="w-3.5 h-3.5 text-cyan-400" />}
+            <span>{isSidebarCollapsed ? 'Exibir Parâmetros' : 'Foco Total no Desenho (100% Tela)'}</span>
+          </button>
 
-        {/* Net Weight KPI */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-mono text-slate-400 uppercase font-semibold">Peso Líquido Unit.</span>
-            <Scale className="w-4 h-4 text-emerald-400" />
-          </div>
-          <div className="text-xl font-mono font-bold text-emerald-300 mt-2">
-            {(weightResult.pesoLiquidoKg * 1000).toFixed(2)} <span className="text-xs text-emerald-400 font-normal">g</span>
-          </div>
-          <div className="text-[10px] text-slate-400 font-mono mt-1">
-            Milheiro: <strong>{weightResult.pesoMilheiroLiquidoKg} kg</strong>
-          </div>
-        </div>
+          <span className="text-slate-600 hidden sm:inline">|</span>
 
-        {/* Gross Weight & Scrap KPI */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-mono text-slate-400 uppercase font-semibold">Matéria-Prima Bruta</span>
-            <TrendingDown className="w-4 h-4 text-rose-400" />
-          </div>
-          <div className="text-xl font-mono font-bold text-slate-200 mt-2">
-            {(weightResult.pesoBrutoKg * 1000).toFixed(2)} <span className="text-xs text-slate-400 font-normal">g</span>
-          </div>
-          <div className="text-[10px] font-mono mt-1 text-rose-400 flex items-center gap-1 font-semibold">
-            <span>Perda / Cavaco:</span>
-            <span>{weightResult.fatorPerdaPercentual}%</span>
+          {/* Quick SKU display */}
+          <div className="flex items-center gap-1.5 text-xs font-mono">
+            <span className="text-slate-400 hidden md:inline">SKU:</span>
+            <span className="text-cyan-300 font-bold bg-cyan-950/70 border border-cyan-800 px-2 py-0.5 rounded">
+              {skuGerado}
+            </span>
           </div>
         </div>
 
-        {/* Yield per Ton KPI */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-mono text-slate-400 uppercase font-semibold">Rendimento / Ton</span>
-            <Cpu className="w-4 h-4 text-amber-400" />
+        {/* KPI Visibility Toggle & Quick Stats */}
+        <div className="flex items-center gap-3">
+          <div className="hidden xl:flex items-center gap-4 text-xs font-mono text-slate-400">
+            <span>Líquido: <strong className="text-emerald-400">{(weightResult.pesoLiquidoKg * 1000).toFixed(1)}g</strong></span>
+            <span>Bruto: <strong className="text-slate-200">{(weightResult.pesoBrutoKg * 1000).toFixed(1)}g</strong></span>
+            <span>Cavaco: <strong className="text-rose-400">{weightResult.fatorPerdaPercentual}%</strong></span>
+            <span>Rendimento: <strong className="text-amber-400">{weightResult.pecasPorTonelada.toLocaleString('pt-BR')} pç/t</strong></span>
           </div>
-          <div className="text-xl font-mono font-bold text-amber-300 mt-2">
-            {weightResult.pecasPorTonelada.toLocaleString('pt-BR')}{' '}
-            <span className="text-xs text-slate-400 font-normal">peças</span>
-          </div>
-          <div className="text-[10px] text-slate-400 font-mono mt-1">Capacidade de Produção MES</div>
+
+          <button
+            type="button"
+            onClick={() => setShowKpis(!showKpis)}
+            className="flex items-center gap-1 text-[11px] font-mono text-slate-400 hover:text-slate-200 px-2 py-1 rounded bg-slate-950 border border-slate-800"
+            title={showKpis ? 'Ocultar Cards de Indicadores' : 'Exibir Cards de Indicadores'}
+          >
+            {showKpis ? <EyeOff className="w-3 h-3 text-slate-400" /> : <Eye className="w-3 h-3 text-cyan-400" />}
+            <span>{showKpis ? 'Recolher Métricas' : 'Métricas'}</span>
+          </button>
         </div>
       </div>
 
-      {/* Main Grid: Left Form (5 Cols) & Right Interactive Area (7 Cols) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* ============================================================== */}
-        {/* LEFT COLUMN: PARAMETRIC ENGINEERING FORM (5 Cols)              */}
-        {/* ============================================================== */}
-        <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-5">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-            <div className="flex items-center gap-2">
-              <Wrench className="w-5 h-5 text-cyan-400" />
-              <h2 className="text-base font-bold text-slate-100">Configurador Paramétrico</h2>
+      {/* Top Banner / KPIs (Compact & Collapsible) */}
+      {showKpis && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-in fade-in duration-150">
+          {/* SKU KPI */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-mono text-slate-400 uppercase font-semibold">SKU Paramétrico</span>
+              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
             </div>
-            <span className="text-[10px] font-mono bg-cyan-950 text-cyan-400 border border-cyan-800 px-2 py-0.5 rounded font-semibold">
-              CORE ENGINE
-            </span>
+            <div className="text-xs font-mono font-bold text-cyan-300 truncate mt-1" title={skuGerado}>
+              {skuGerado}
+            </div>
+            <div className="text-[10px] text-slate-500 font-mono mt-0.5">{standardCode} • {bitola}x{comprimento || 50}</div>
           </div>
+
+          {/* Net Weight KPI */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-mono text-slate-400 uppercase font-semibold">Peso Líquido Unit.</span>
+              <Scale className="w-3.5 h-3.5 text-emerald-400" />
+            </div>
+            <div className="text-base font-mono font-bold text-emerald-300 mt-1">
+              {(weightResult.pesoLiquidoKg * 1000).toFixed(2)} <span className="text-[11px] text-emerald-400 font-normal">g</span>
+            </div>
+            <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+              Milheiro: <strong>{weightResult.pesoMilheiroLiquidoKg} kg</strong>
+            </div>
+          </div>
+
+          {/* Gross Weight & Scrap KPI */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-mono text-slate-400 uppercase font-semibold">Matéria-Prima Bruta</span>
+              <TrendingDown className="w-3.5 h-3.5 text-rose-400" />
+            </div>
+            <div className="text-base font-mono font-bold text-slate-200 mt-1">
+              {(weightResult.pesoBrutoKg * 1000).toFixed(2)} <span className="text-[11px] text-slate-400 font-normal">g</span>
+            </div>
+            <div className="text-[10px] font-mono mt-0.5 text-rose-400 flex items-center gap-1 font-semibold">
+              <span>Perda / Cavaco: {weightResult.fatorPerdaPercentual}%</span>
+            </div>
+          </div>
+
+          {/* Yield per Ton KPI */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-mono text-slate-400 uppercase font-semibold">Rendimento / Ton</span>
+              <Cpu className="w-3.5 h-3.5 text-amber-400" />
+            </div>
+            <div className="text-base font-mono font-bold text-amber-300 mt-1">
+              {weightResult.pecasPorTonelada.toLocaleString('pt-BR')}{' '}
+              <span className="text-[11px] text-slate-400 font-normal">peças</span>
+            </div>
+            <div className="text-[10px] text-slate-400 font-mono mt-0.5">Capacidade de Produção MES</div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Grid: Left Form & Right Interactive CAD Area */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        {/* ============================================================== */}
+        {/* LEFT COLUMN: PARAMETRIC ENGINEERING FORM                       */}
+        {/* ============================================================== */}
+        {!isSidebarCollapsed && (
+          <div className="lg:col-span-4 xl:col-span-4 2xl:col-span-3 bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-xl space-y-4">
+            <div className="flex items-center justify-between pb-2.5 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Wrench className="w-4 h-4 text-cyan-400" />
+                <h2 className="text-sm font-bold text-slate-100">Configurador Paramétrico</h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-mono bg-cyan-950 text-cyan-400 border border-cyan-800 px-2 py-0.5 rounded font-semibold">
+                  CORE ENGINE
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsSidebarCollapsed(true)}
+                  className="p-1 text-slate-400 hover:text-amber-400 hover:bg-slate-800 rounded"
+                  title="Recolher painel"
+                >
+                  <PanelLeftClose className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
 
           {/* 1. Element Family Selector (Parafuso / Porca / Arruela) */}
           <div>
@@ -571,76 +638,90 @@ export function EngineeringConfigurator({ initialProducts = [] }: EngineeringCon
             </button>
           </div>
         </div>
+      )}
 
-        {/* ============================================================== */}
-        {/* RIGHT COLUMN: TABS & INTERACTIVE CAD / BOM / ROUTING / AI     */}
-        {/* ============================================================== */}
-        <div className="lg:col-span-7 flex flex-col space-y-4">
+      {/* ============================================================== */}
+      {/* RIGHT COLUMN: TABS & INTERACTIVE CAD / BOM / ROUTING / AI     */}
+      {/* ============================================================== */}
+        <div className={`${isSidebarCollapsed ? 'col-span-12' : 'lg:col-span-8 xl:col-span-8 2xl:col-span-9'} flex flex-col space-y-3`}>
           {/* Navigation Tabs Bar */}
-          <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 p-1 rounded-xl overflow-x-auto scrollbar-none">
-            <button
-              type="button"
-              onClick={() => setActiveTab('cad')}
-              className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg transition-all ${
-                activeTab === 'cad'
-                  ? 'bg-cyan-500 text-slate-950 font-bold shadow-md'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-              }`}
-            >
-              <Cpu className="w-4 h-4" />
-              <span>Prancha Técnica CAD</span>
-            </button>
+          <div className="flex items-center justify-between bg-slate-900 border border-slate-800 p-1.5 rounded-xl gap-2">
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+              <button
+                type="button"
+                onClick={() => setActiveTab('cad')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  activeTab === 'cad'
+                    ? 'bg-cyan-500 text-slate-950 font-bold shadow-md'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                }`}
+              >
+                <Cpu className="w-4 h-4" />
+                <span>Prancha Técnica CAD</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab('bom')}
-              className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg transition-all ${
-                activeTab === 'bom'
-                  ? 'bg-cyan-500 text-slate-950 font-bold shadow-md'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-              }`}
-            >
-              <Layers className="w-4 h-4" />
-              <span>Estrutura (BOM)</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('bom')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  activeTab === 'bom'
+                    ? 'bg-cyan-500 text-slate-950 font-bold shadow-md'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                }`}
+              >
+                <Layers className="w-4 h-4" />
+                <span>Estrutura (BOM)</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab('routing')}
-              className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg transition-all ${
-                activeTab === 'routing'
-                  ? 'bg-cyan-500 text-slate-950 font-bold shadow-md'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-              }`}
-            >
-              <ListOrdered className="w-4 h-4" />
-              <span>Roteiro MES</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('routing')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  activeTab === 'routing'
+                    ? 'bg-cyan-500 text-slate-950 font-bold shadow-md'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                }`}
+              >
+                <ListOrdered className="w-4 h-4" />
+                <span>Roteiro MES</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab('ai')}
-              className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg transition-all ${
-                activeTab === 'ai'
-                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold shadow-md'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-              }`}
-            >
-              <Bot className="w-4 h-4 text-amber-400" />
-              <span>Copilot Lynx AI</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('ai')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  activeTab === 'ai'
+                    ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold shadow-md'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                }`}
+              >
+                <Bot className="w-4 h-4 text-amber-400" />
+                <span>Copilot Lynx AI</span>
+              </button>
 
+              <button
+                type="button"
+                onClick={() => setActiveTab('history')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  activeTab === 'history'
+                    ? 'bg-cyan-500 text-slate-950 font-bold shadow-md'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                }`}
+              >
+                <History className="w-4 h-4" />
+                <span>Histórico ({savedProducts.length})</span>
+              </button>
+            </div>
+
+            {/* Quick Layout Mode Switch Button */}
             <button
               type="button"
-              onClick={() => setActiveTab('history')}
-              className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg transition-all ${
-                activeTab === 'history'
-                  ? 'bg-cyan-500 text-slate-950 font-bold shadow-md'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-              }`}
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-700 text-cyan-300 text-xs font-bold rounded-lg transition-colors shrink-0"
+              title={isSidebarCollapsed ? 'Restaurar modo dividido com painel' : 'Expandir prancha para 100% da tela'}
             >
-              <History className="w-4 h-4" />
-              <span>Histórico ({savedProducts.length})</span>
+              {isSidebarCollapsed ? <PanelLeftOpen className="w-3.5 h-3.5" /> : <PanelLeftClose className="w-3.5 h-3.5" />}
+              <span>{isSidebarCollapsed ? 'Modo Dividido' : 'Expandir Prancha (100%)'}</span>
             </button>
           </div>
 
@@ -649,7 +730,7 @@ export function EngineeringConfigurator({ initialProducts = [] }: EngineeringCon
             <div className="flex flex-col space-y-3">
               {/* CAD Rendering Engine Mode Toggle */}
               <div className="flex items-center justify-between bg-slate-900 border border-slate-800 p-2 rounded-xl">
-                <span className="text-[11px] font-mono text-slate-400 pl-2">Estilo de Visualização Gráfica:</span>
+                <span className="text-[11px] font-mono text-slate-400 pl-2">Estilo Gráfico:</span>
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"

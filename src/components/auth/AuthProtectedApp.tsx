@@ -37,7 +37,7 @@ export function AuthProtectedApp({ initialProducts }: AuthProtectedAppProps) {
     <div className="min-h-screen bg-[#070b12] text-slate-100 flex flex-col justify-between">
       {/* Top Multi-Tenant Navbar */}
       <header className="border-b border-slate-800 bg-slate-950/90 backdrop-blur sticky top-0 z-50 px-6 py-3">
-        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-4">
+        <div className="max-w-[1920px] mx-auto flex flex-col lg:flex-row items-center justify-between gap-4">
           {/* Brand & Delta Official Logo */}
           <div className="flex items-center gap-3">
             <DeltaLogo size={42} />
@@ -109,14 +109,14 @@ export function AuthProtectedApp({ initialProducts }: AuthProtectedAppProps) {
         </div>
       </header>
 
-      {/* Main App Content */}
-      <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 py-6 flex-1">
+      {/* Main App Content - Fluid Wide CAD Workspace */}
+      <main className="max-w-[1920px] mx-auto w-full px-4 sm:px-6 lg:px-8 py-4 flex-1">
         <EngineeringConfigurator initialProducts={initialProducts} />
-      </div>
+      </main>
 
       {/* Industrial Footer */}
-      <footer className="border-t border-slate-800 bg-slate-950 px-6 py-6 text-xs text-slate-500 font-mono">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+      <footer className="border-t border-slate-800 bg-slate-950 px-6 py-4 text-xs text-slate-500 font-mono">
+        <div className="max-w-[1920px] mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-cyan-400" />
             <span>DeltaFix Parametric Core Engine • Homologado conforme DIN 933, DIN 931, DIN 912, DIN 934, DIN 125, DIN 127</span>
