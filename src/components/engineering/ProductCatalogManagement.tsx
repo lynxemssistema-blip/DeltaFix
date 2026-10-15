@@ -600,20 +600,62 @@ export function ProductCatalogManagement({
 
                 {/* Ações do Card */}
                 <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={() => onSelectProductForCAD && onSelectProductForCAD(p)}
-                    className="flex-1 py-1.5 px-3 rounded-lg bg-cyan-950 hover:bg-cyan-900 border border-cyan-800 text-cyan-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
-                    title="Visualizar prancha técnica CAD 2D deste produto"
-                  >
-                    <FileCode2 className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>Prancha CAD 2D</span>
-                  </button>
+                  {!isSpecial ? (
+                    <button
+                      type="button"
+                      onClick={() => onSelectProductForCAD && onSelectProductForCAD(p)}
+                      className="flex-1 py-1.5 px-3 rounded-lg bg-cyan-950 hover:bg-cyan-900 border border-cyan-800 text-cyan-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      title="Visualizar prancha técnica CAD 2D deste produto normatizado"
+                    >
+                      <FileCode2 className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Prancha CAD 2D</span>
+                    </button>
+                  ) : (
+                    <div className="flex-1 flex items-center gap-1.5">
+                      {p.anexo_pdf_url ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPreviewMedia({
+                              type: 'pdf',
+                              url: p.anexo_pdf_url!,
+                              title: p.anexo_pdf_nome || p.sku_gerado
+                            })
+                          }
+                          className="flex-1 py-1.5 px-2 rounded-lg bg-red-950/80 hover:bg-red-900 border border-red-800 text-red-200 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                          title="Visualizar desenho técnico PDF anexado"
+                        >
+                          <FileText className="w-3.5 h-3.5 text-red-400" />
+                          <span>Ver Desenho PDF</span>
+                        </button>
+                      ) : p.foto_produto_url ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPreviewMedia({
+                              type: 'photo',
+                              url: p.foto_produto_url!,
+                              title: p.foto_produto_nome || p.sku_gerado
+                            })
+                          }
+                          className="flex-1 py-1.5 px-2 rounded-lg bg-amber-950/80 hover:bg-amber-900 border border-amber-800 text-amber-200 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                          title="Visualizar foto da peça especial"
+                        >
+                          <ImageIcon className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Ver Foto da Peça</span>
+                        </button>
+                      ) : (
+                        <span className="flex-1 py-1.5 px-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-500 text-[11px] font-mono flex items-center justify-center text-center">
+                          Peça Sob Medida (Sem Norma CAD)
+                        </span>
+                      )}
+                    </div>
+                  )}
 
                   <button
                     type="button"
                     onClick={() => handleDelete(p.sku_gerado)}
-                    className="p-1.5 rounded-lg bg-slate-950 hover:bg-red-950 border border-slate-800 hover:border-red-800 text-slate-400 hover:text-red-300 transition-all"
+                    className="p-1.5 rounded-lg bg-slate-950 hover:bg-red-950 border border-slate-800 hover:border-red-800 text-slate-400 hover:text-red-300 transition-all cursor-pointer"
                     title="Excluir produto do catálogo"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -758,14 +800,16 @@ export function ProductCatalogManagement({
                               <FileText className="w-4 h-4" />
                             </button>
                           )}
-                          <button
-                            type="button"
-                            onClick={() => onSelectProductForCAD && onSelectProductForCAD(p)}
-                            className="p-1.5 rounded-lg bg-cyan-950 border border-cyan-800 text-cyan-400 hover:bg-cyan-900 transition-all"
-                            title="Abrir no Desenho CAD"
-                          >
-                            <FileCode2 className="w-4 h-4" />
-                          </button>
+                          {!isSpecial && (
+                            <button
+                              type="button"
+                              onClick={() => onSelectProductForCAD && onSelectProductForCAD(p)}
+                              className="p-1.5 rounded-lg bg-cyan-950 border border-cyan-800 text-cyan-400 hover:bg-cyan-900 transition-all cursor-pointer"
+                              title="Abrir no Desenho CAD 2D"
+                            >
+                              <FileCode2 className="w-4 h-4" />
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => handleDelete(p.sku_gerado)}
