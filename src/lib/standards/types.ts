@@ -115,6 +115,8 @@ export interface ProductItem {
   desenho_cliente_ref?: string;
   anexo_pdf_url?: string;
   anexo_pdf_nome?: string;
+  foto_produto_url?: string;
+  foto_produto_nome?: string;
   observacoes_especiais?: string;
   especificacoes_adicionais?: Record<string, unknown>;
   created_at?: string;

@@ -31,7 +31,11 @@ import {
   ShieldCheck,
   AlertTriangle,
   Upload,
-  Info
+  Info,
+  Image as ImageIcon,
+  Paperclip,
+  Download,
+  Eye
 } from 'lucide-react';
 
 interface ProductCatalogManagementProps {
@@ -71,6 +75,48 @@ export function ProductCatalogManagement({
   const [formDesenhoClienteRef, setFormDesenhoClienteRef] = useState('');
   const [formObservacoes, setFormObservacoes] = useState('');
   const [formPesoManual, setFormPesoManual] = useState<string>('');
+
+  // Anexos de Arquivo (PDF e Fotos)
+  const [formPdfName, setFormPdfName] = useState<string>('');
+  const [formPdfData, setFormPdfData] = useState<string>('');
+  const [formPdfSize, setFormPdfSize] = useState<string>('');
+
+  const [formPhotoName, setFormPhotoName] = useState<string>('');
+  const [formPhotoData, setFormPhotoData] = useState<string>('');
+
+  // Modal de Visualização Ampliada (Foto / PDF)
+  const [previewMedia, setPreviewMedia] = useState<{ type: 'photo' | 'pdf'; url: string; title: string } | null>(null);
+
+  const handlePdfUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFormPdfName(file.name);
+    setFormPdfSize((file.size / 1024).toFixed(1) + ' KB');
+    const reader = new FileReader();
+    reader.onload = () => {
+      setFormPdfData(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFormPhotoName(file.name);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setFormPhotoData(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleClearAttachments = () => {
+    setFormPdfName('');
+    setFormPdfData('');
+    setFormPdfSize('');
+    setFormPhotoName('');
+    setFormPhotoData('');
+  };
 
   // Carregar produtos
   useEffect(() => {
@@ -151,12 +197,17 @@ export function ProductCatalogManagement({
       fator_perda_percentual: 10.0,
       is_custom_special: true,
       desenho_cliente_ref: formDesenhoClienteRef || undefined,
+      anexo_pdf_url: formPdfData || undefined,
+      anexo_pdf_nome: formPdfName || undefined,
+      foto_produto_url: formPhotoData || undefined,
+      foto_produto_nome: formPhotoName || undefined,
       observacoes_especiais: formObservacoes || 'Peça cadastrada livremente no sistema sem norma restritiva.',
       created_at: new Date().toISOString()
     };
 
     const updatedList = saveCatalogProduct(newProduct);
     setProducts(updatedList);
+    handleClearAttachments();
     setModalSuccessMsg(`Produto Especial [${newProduct.sku_gerado}] cadastrado com sucesso!`);
     setTimeout(() => {
       setModalSuccessMsg(null);
@@ -415,10 +466,65 @@ export function ProductCatalogManagement({
                     {p.sku_gerado}
                   </h3>
 
+                  {/* Foto Real do Produto (se anexada) */}
+                  {p.foto_produto_url && (
+                    <div className="mt-2.5 relative rounded-xl overflow-hidden border border-slate-700/80 bg-slate-950 max-h-36 flex items-center justify-center group/img">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={p.foto_produto_url}
+                        alt={p.sku_gerado}
+                        className="w-full h-28 object-cover transition-transform group-hover/img:scale-105"
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPreviewMedia({
+                            type: 'photo',
+                            url: p.foto_produto_url!,
+                            title: p.foto_produto_nome || p.sku_gerado
+                          })
+                        }
+                        className="absolute bottom-1.5 right-1.5 px-2 py-1 rounded bg-slate-950/85 hover:bg-slate-900 border border-slate-700 text-white text-[10px] font-mono flex items-center gap-1 shadow backdrop-blur-sm"
+                        title="Ver foto em tela cheia"
+                      >
+                        <Eye className="w-3 h-3 text-cyan-400" />
+                        <span>Ver Foto</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Tag de Referência de Desenho do Cliente */}
                   {p.desenho_cliente_ref && (
                     <div className="mt-1 flex items-center gap-1 text-[11px] font-mono text-amber-400">
                       <Tag className="w-3 h-3" />
                       <span>Desenho: {p.desenho_cliente_ref}</span>
+                    </div>
+                  )}
+
+                  {/* Tag e Ação de PDF Anexado */}
+                  {p.anexo_pdf_url && (
+                    <div className="mt-1.5 flex items-center justify-between p-1.5 rounded-lg bg-red-950/40 border border-red-800/60 text-xs">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <FileText className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                        <span className="text-[10px] font-mono text-red-200 truncate">
+                          {p.anexo_pdf_nome || 'Desenho_Tecnico.pdf'}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPreviewMedia({
+                            type: 'pdf',
+                            url: p.anexo_pdf_url!,
+                            title: p.anexo_pdf_nome || p.sku_gerado
+                          })
+                        }
+                        className="px-2 py-0.5 rounded bg-red-900/80 hover:bg-red-800 text-red-100 text-[10px] font-mono font-bold flex items-center gap-1 shrink-0 ml-1"
+                        title="Visualizar prancha PDF anexada"
+                      >
+                        <Eye className="w-3 h-3" />
+                        <span>Ver PDF</span>
+                      </button>
                     </div>
                   )}
 
@@ -542,13 +648,33 @@ export function ProductCatalogManagement({
                   return (
                     <tr key={p.sku_gerado} className="hover:bg-slate-800/50 transition-colors">
                       <td className="py-3 px-4">
-                        <div className="font-bold text-white">{p.sku_gerado}</div>
-                        {p.codigo_interno_delta && (
-                          <div className="text-[10px] text-slate-400">{p.codigo_interno_delta}</div>
-                        )}
-                        {p.desenho_cliente_ref && (
-                          <div className="text-[10px] text-amber-400">DWG: {p.desenho_cliente_ref}</div>
-                        )}
+                        <div className="flex items-center gap-2.5">
+                          {p.foto_produto_url && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={p.foto_produto_url}
+                              alt={p.sku_gerado}
+                              onClick={() =>
+                                setPreviewMedia({
+                                  type: 'photo',
+                                  url: p.foto_produto_url!,
+                                  title: p.foto_produto_nome || p.sku_gerado
+                                })
+                              }
+                              className="w-9 h-9 object-cover rounded border border-slate-700 cursor-pointer hover:scale-110 transition-transform shrink-0"
+                              title="Clique para ampliar a foto"
+                            />
+                          )}
+                          <div>
+                            <div className="font-bold text-white">{p.sku_gerado}</div>
+                            {p.codigo_interno_delta && (
+                              <div className="text-[10px] text-slate-400">{p.codigo_interno_delta}</div>
+                            )}
+                            {p.desenho_cliente_ref && (
+                              <div className="text-[10px] text-amber-400">DWG: {p.desenho_cliente_ref}</div>
+                            )}
+                          </div>
+                        </div>
                       </td>
 
                       <td className="py-3 px-4">
@@ -600,6 +726,38 @@ export function ProductCatalogManagement({
 
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {p.foto_produto_url && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPreviewMedia({
+                                  type: 'photo',
+                                  url: p.foto_produto_url!,
+                                  title: p.foto_produto_nome || p.sku_gerado
+                                })
+                              }
+                              className="p-1.5 rounded-lg bg-amber-950 border border-amber-800 text-amber-300 hover:bg-amber-900 transition-all"
+                              title="Ver Foto do Produto"
+                            >
+                              <ImageIcon className="w-4 h-4" />
+                            </button>
+                          )}
+                          {p.anexo_pdf_url && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPreviewMedia({
+                                  type: 'pdf',
+                                  url: p.anexo_pdf_url!,
+                                  title: p.anexo_pdf_nome || p.sku_gerado
+                                })
+                              }
+                              className="p-1.5 rounded-lg bg-red-950 border border-red-800 text-red-300 hover:bg-red-900 transition-all"
+                              title="Ver Desenho PDF Técnico"
+                            >
+                              <FileText className="w-4 h-4" />
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => onSelectProductForCAD && onSelectProductForCAD(p)}
@@ -917,7 +1075,116 @@ export function ProductCatalogManagement({
                 </div>
               </div>
 
-              {/* Linha 8: Peso Teórico e Observações */}
+              {/* Linha 8: Anexos de Arquivo (PDF e Fotos) */}
+              <div className="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-mono text-cyan-400 font-bold uppercase flex items-center gap-1.5">
+                    <Paperclip className="w-4 h-4 text-cyan-400" />
+                    ANEXAR ARQUIVO EM PDF E/OU FOTOS DO PRODUTO
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-mono">Formatos: .PDF, .PNG, .JPG, .WEBP</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Bloco 1: Upload de Foto do Produto / Amostra */}
+                  <div className="p-3 rounded-lg bg-slate-900 border border-slate-700/80 flex flex-col justify-between">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-[10px] font-mono text-slate-300 font-bold uppercase flex items-center gap-1">
+                        <ImageIcon className="w-3.5 h-3.5 text-amber-400" />
+                        Foto Real / Amostra da Peça:
+                      </label>
+                      {formPhotoData && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormPhotoData('');
+                            setFormPhotoName('');
+                          }}
+                          className="text-[10px] text-red-400 hover:underline flex items-center gap-0.5"
+                        >
+                          <X className="w-3 h-3" /> Remover
+                        </button>
+                      )}
+                    </div>
+
+                    {formPhotoData ? (
+                      <div className="flex items-center gap-3 p-2 bg-slate-950 rounded-lg border border-slate-800">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={formPhotoData}
+                          alt="Prévia da Peça"
+                          className="w-14 h-14 object-cover rounded-md border border-slate-700 shadow"
+                        />
+                        <div className="overflow-hidden flex-1">
+                          <span className="text-xs font-mono font-bold text-white block truncate">{formPhotoName}</span>
+                          <span className="text-[10px] text-emerald-400 font-mono">✓ Foto pronta para salvar</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center p-3 border-2 border-dashed border-slate-700 hover:border-amber-400/60 rounded-lg cursor-pointer bg-slate-950/60 transition-colors group">
+                        <ImageIcon className="w-6 h-6 text-slate-500 group-hover:text-amber-400 mb-1 transition-colors" />
+                        <span className="text-xs font-semibold text-slate-300 group-hover:text-white">Clique para selecionar foto</span>
+                        <span className="text-[9px] text-slate-500 font-mono mt-0.5">PNG, JPG ou WEBP</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handlePhotoUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Bloco 2: Upload de Desenho Técnico em PDF */}
+                  <div className="p-3 rounded-lg bg-slate-900 border border-slate-700/80 flex flex-col justify-between">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-[10px] font-mono text-slate-300 font-bold uppercase flex items-center gap-1">
+                        <FileText className="w-3.5 h-3.5 text-red-400" />
+                        Desenho Técnico / Datasheet (PDF):
+                      </label>
+                      {formPdfData && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormPdfData('');
+                            setFormPdfName('');
+                            setFormPdfSize('');
+                          }}
+                          className="text-[10px] text-red-400 hover:underline flex items-center gap-0.5"
+                        >
+                          <X className="w-3 h-3" /> Remover
+                        </button>
+                      )}
+                    </div>
+
+                    {formPdfData ? (
+                      <div className="flex items-center gap-3 p-2 bg-slate-950 rounded-lg border border-slate-800">
+                        <div className="w-12 h-12 rounded-lg bg-red-950/80 border border-red-800 flex items-center justify-center text-red-400 font-bold text-xs font-mono shrink-0">
+                          PDF
+                        </div>
+                        <div className="overflow-hidden flex-1">
+                          <span className="text-xs font-mono font-bold text-white block truncate">{formPdfName}</span>
+                          <span className="text-[10px] text-slate-400 font-mono">{formPdfSize} • Pronto para salvar</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center p-3 border-2 border-dashed border-slate-700 hover:border-red-400/60 rounded-lg cursor-pointer bg-slate-950/60 transition-colors group">
+                        <FileText className="w-6 h-6 text-slate-500 group-hover:text-red-400 mb-1 transition-colors" />
+                        <span className="text-xs font-semibold text-slate-300 group-hover:text-white">Clique para selecionar PDF</span>
+                        <span className="text-[9px] text-slate-500 font-mono mt-0.5">Pranchas de desenho .PDF</span>
+                        <input
+                          type="file"
+                          accept=".pdf,application/pdf"
+                          onChange={handlePdfUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Linha 9: Peso Teórico e Observações */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center bg-slate-950/70 p-3 rounded-xl border border-slate-800">
                 <div className="sm:col-span-1">
                   <label className="block text-[10px] font-mono text-cyan-400 font-bold uppercase mb-1">
@@ -965,6 +1232,64 @@ export function ProductCatalogManagement({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          6. MODAL DE VISUALIZAÇÃO AMPLIADA (FOTO / PDF TÉCNICO)
+          ========================================================================= */}
+      {previewMedia && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+            <div className="px-5 py-3 border-b border-slate-800 bg-slate-950 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {previewMedia.type === 'photo' ? (
+                  <ImageIcon className="w-4 h-4 text-amber-400" />
+                ) : (
+                  <FileText className="w-4 h-4 text-red-400" />
+                )}
+                <span className="font-mono font-bold text-xs text-white truncate max-w-md">
+                  {previewMedia.title}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewMedia.url}
+                  download={previewMedia.title}
+                  className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-400 text-xs font-mono font-bold flex items-center gap-1 transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Baixar</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setPreviewMedia(null)}
+                  className="p-1 rounded-lg bg-slate-800 text-slate-400 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4 overflow-auto flex-1 flex items-center justify-center bg-slate-950/80">
+              {previewMedia.type === 'photo' ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={previewMedia.url}
+                  alt={previewMedia.title}
+                  className="max-w-full max-h-[75vh] object-contain rounded-xl border border-slate-800 shadow-2xl"
+                />
+              ) : (
+                <div className="w-full h-[75vh] flex flex-col items-center justify-center space-y-3">
+                  <iframe
+                    src={previewMedia.url}
+                    title={previewMedia.title}
+                    className="w-full h-full rounded-xl border border-slate-800 bg-white"
+                  />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
