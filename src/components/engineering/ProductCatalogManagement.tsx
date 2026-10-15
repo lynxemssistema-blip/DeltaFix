@@ -53,8 +53,9 @@ export function ProductCatalogManagement({
   const [typeFilter, setTypeFilter] = useState<'todos' | 'especial_livre' | 'normatizado'>('todos');
   const [viewMode, setViewMode] = useState<'cards' | 'tabela'>('cards');
 
-  // Modal de Cadastro Livre de Peça Especial
+  // Modal de Cadastro e Edição Livre de Peça Especial
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<ProductItem | null>(null);
   const [modalSuccessMsg, setModalSuccessMsg] = useState<string | null>(null);
 
   // Estados do formulário livre
@@ -118,6 +119,55 @@ export function ProductCatalogManagement({
     setFormPhotoData('');
   };
 
+  // Abrir Modal para Criação de Novo Produto Livre
+  const handleOpenCreateModal = () => {
+    setEditingProduct(null);
+    setFormCodigoDelta('');
+    setFormDescricao('');
+    setFormFamily('parafuso');
+    setFormBitola('M24-ESP');
+    setFormPasso(3.0);
+    setFormComprimento(150);
+    setFormComprimentoRosca(60);
+    setFormSobremetalCorte(5.0);
+    setFormChave(36);
+    setFormAlturaCabeca(15);
+    setFormDiametroCabeca(40);
+    setFormMaterialBase('Aço Liga SAE 4140');
+    setFormClasseResistencia('10.9');
+    setFormTratamento('Polido / Oleado');
+    setFormDesenhoClienteRef('');
+    setFormObservacoes('');
+    setFormPesoManual('');
+    handleClearAttachments();
+    setIsModalOpen(true);
+  };
+
+  // Abrir Modal para Edição de Produto Livre Existente
+  const handleOpenEditModal = (prod: ProductItem) => {
+    setEditingProduct(prod);
+    setFormCodigoDelta(prod.codigo_interno_delta || '');
+    setFormDescricao(prod.observacoes_especiais || prod.sku_gerado);
+    setFormFamily(prod.family || 'parafuso');
+    setFormBitola(prod.bitola || 'M24-ESP');
+    setFormPasso(prod.passo || 3.0);
+    setFormComprimento(prod.comprimento || 150);
+    setFormComprimentoRosca(prod.comprimento_rosca_b || 60);
+    setFormSobremetalCorte(prod.sobremetal_corte !== undefined ? prod.sobremetal_corte : 5.0);
+    setFormMaterialBase(prod.material_base || 'Aço Liga SAE 4140');
+    setFormClasseResistencia(prod.classe_resistencia || '10.9');
+    setFormTratamento(prod.tratamento_superficial || 'Polido / Oleado');
+    setFormDesenhoClienteRef(prod.desenho_cliente_ref || '');
+    setFormObservacoes(prod.observacoes_especiais || '');
+    setFormPesoManual(prod.peso_liquido_kg ? String(prod.peso_liquido_kg) : '');
+    setFormPdfData(prod.anexo_pdf_url || '');
+    setFormPdfName(prod.anexo_pdf_nome || '');
+    setFormPdfSize(prod.anexo_pdf_url ? 'Arquivo Anexado' : '');
+    setFormPhotoData(prod.foto_produto_url || '');
+    setFormPhotoName(prod.foto_produto_nome || '');
+    setIsModalOpen(true);
+  };
+
   // Carregar produtos
   useEffect(() => {
     setProducts(getSavedCatalogProducts());
@@ -176,13 +226,15 @@ export function ProductCatalogManagement({
     const pesoLiquido = pesoTeoricoCalculado;
     const pesoBruto = parseFloat((pesoLiquido * 1.1).toFixed(3)); // 10% perda corte/cavaco
 
-    const novoSKU = `ESP-${formFamily.toUpperCase().slice(0, 3)}-${formBitola.toUpperCase()}-${formComprimento}MM-${formClasseResistencia.replace('.', '')}`;
+    const novoSKU = editingProduct
+      ? editingProduct.sku_gerado
+      : `ESP-${formFamily.toUpperCase().slice(0, 3)}-${formBitola.toUpperCase()}-${formComprimento}MM-${formClasseResistencia.replace('.', '')}`;
 
     const newProduct: ProductItem = {
-      id: `prod-esp-${Date.now()}`,
+      id: editingProduct ? editingProduct.id : `prod-esp-${Date.now()}`,
       sku_gerado: novoSKU,
-      codigo_interno_delta: formCodigoDelta || `DELTA-ESP-${Math.floor(1000 + Math.random() * 9000)}`,
-      standard_code: 'ESPECIAL LIVRE',
+      codigo_interno_delta: formCodigoDelta || (editingProduct ? editingProduct.codigo_interno_delta : `DELTA-ESP-${Math.floor(1000 + Math.random() * 9000)}`),
+      standard_code: editingProduct ? editingProduct.standard_code : 'ESPECIAL LIVRE',
       family: formFamily as any,
       bitola: formBitola,
       passo: formPasso,
@@ -202,16 +254,21 @@ export function ProductCatalogManagement({
       foto_produto_url: formPhotoData || undefined,
       foto_produto_nome: formPhotoName || undefined,
       observacoes_especiais: formObservacoes || 'Peça cadastrada livremente no sistema sem norma restritiva.',
-      created_at: new Date().toISOString()
+      created_at: editingProduct?.created_at || new Date().toISOString()
     };
 
     const updatedList = saveCatalogProduct(newProduct);
     setProducts(updatedList);
     handleClearAttachments();
-    setModalSuccessMsg(`Produto Especial [${newProduct.sku_gerado}] cadastrado com sucesso!`);
+    setModalSuccessMsg(
+      editingProduct
+        ? `Produto Especial [${newProduct.sku_gerado}] atualizado com sucesso!`
+        : `Produto Especial [${newProduct.sku_gerado}] cadastrado com sucesso!`
+    );
     setTimeout(() => {
       setModalSuccessMsg(null);
       setIsModalOpen(false);
+      setEditingProduct(null);
     }, 1200);
   };
 
@@ -263,7 +320,7 @@ export function ProductCatalogManagement({
 
           <button
             type="button"
-            onClick={() => setIsModalOpen(true)}
+            onClick={handleOpenCreateModal}
             className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-emerald-950/80 active:scale-95 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4 text-slate-950 stroke-[3]" />
@@ -413,8 +470,8 @@ export function ProductCatalogManagement({
           </p>
           <button
             type="button"
-            onClick={() => setIsModalOpen(true)}
-            className="mt-4 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-slate-950 text-xs font-black uppercase tracking-wider inline-flex items-center gap-1.5 transition-all"
+            onClick={handleOpenCreateModal}
+            className="mt-4 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-slate-950 text-xs font-black uppercase tracking-wider inline-flex items-center gap-1.5 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             Cadastrar Produto Livremente
@@ -612,7 +669,7 @@ export function ProductCatalogManagement({
                     </button>
                   ) : (
                     <div className="flex-1 flex items-center gap-1.5">
-                      {p.anexo_pdf_url ? (
+                      {p.anexo_pdf_url && (
                         <button
                           type="button"
                           onClick={() =>
@@ -622,13 +679,14 @@ export function ProductCatalogManagement({
                               title: p.anexo_pdf_nome || p.sku_gerado
                             })
                           }
-                          className="flex-1 py-1.5 px-2 rounded-lg bg-red-950/80 hover:bg-red-900 border border-red-800 text-red-200 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                          className="py-1.5 px-2 rounded-lg bg-red-950/80 hover:bg-red-900 border border-red-800 text-red-200 text-xs font-bold flex items-center justify-center gap-1 transition-all cursor-pointer"
                           title="Visualizar desenho técnico PDF anexado"
                         >
                           <FileText className="w-3.5 h-3.5 text-red-400" />
-                          <span>Ver Desenho PDF</span>
+                          <span>PDF</span>
                         </button>
-                      ) : p.foto_produto_url ? (
+                      )}
+                      {p.foto_produto_url && (
                         <button
                           type="button"
                           onClick={() =>
@@ -638,17 +696,22 @@ export function ProductCatalogManagement({
                               title: p.foto_produto_nome || p.sku_gerado
                             })
                           }
-                          className="flex-1 py-1.5 px-2 rounded-lg bg-amber-950/80 hover:bg-amber-900 border border-amber-800 text-amber-200 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                          className="py-1.5 px-2 rounded-lg bg-amber-950/80 hover:bg-amber-900 border border-amber-800 text-amber-200 text-xs font-bold flex items-center justify-center gap-1 transition-all cursor-pointer"
                           title="Visualizar foto da peça especial"
                         >
                           <ImageIcon className="w-3.5 h-3.5 text-amber-400" />
-                          <span>Ver Foto da Peça</span>
+                          <span>Foto</span>
                         </button>
-                      ) : (
-                        <span className="flex-1 py-1.5 px-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-500 text-[11px] font-mono flex items-center justify-center text-center">
-                          Peça Sob Medida (Sem Norma CAD)
-                        </span>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditModal(p)}
+                        className="flex-1 py-1.5 px-2.5 rounded-lg bg-gradient-to-r from-cyan-950 to-slate-900 hover:from-cyan-900 hover:to-slate-800 border border-cyan-700/80 text-cyan-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm hover:border-cyan-500"
+                        title="Editar medidas, referências, foto e PDF deste cadastro livre"
+                      >
+                        <Edit3 className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>Editar Peça</span>
+                      </button>
                     </div>
                   )}
 
@@ -800,6 +863,17 @@ export function ProductCatalogManagement({
                               <FileText className="w-4 h-4" />
                             </button>
                           )}
+                          {isSpecial && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditModal(p)}
+                              className="p-1.5 rounded-lg bg-cyan-950 border border-cyan-800 text-cyan-300 hover:bg-cyan-900 transition-all cursor-pointer flex items-center gap-1 px-2"
+                              title="Editar Peça Especial"
+                            >
+                              <Edit3 className="w-4 h-4 text-cyan-400" />
+                              <span className="text-[11px] font-bold">Editar</span>
+                            </button>
+                          )}
                           {!isSpecial && (
                             <button
                               type="button"
@@ -840,14 +914,20 @@ export function ProductCatalogManagement({
               <div>
                 <span className="text-[10px] font-mono text-emerald-400 font-bold uppercase tracking-wider flex items-center gap-1">
                   <Sparkles className="w-3.5 h-3.5" />
-                  Engenharia Sem Restrição de Norma
+                  {editingProduct ? 'Modo de Edição Sob Medida' : 'Engenharia Sem Restrição de Norma'}
                 </span>
-                <h2 className="text-lg font-black text-white">CADASTRO LIVRE DE PEÇA ESPECIAL</h2>
+                <h2 className="text-lg font-black text-white">
+                  {editingProduct ? `EDITAR PEÇA ESPECIAL: ${editingProduct.sku_gerado}` : 'CADASTRO LIVRE DE PEÇA ESPECIAL'}
+                </h2>
               </div>
               <button
                 type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="p-1.5 rounded-lg bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800 transition-all"
+                onClick={() => {
+                  setIsModalOpen(false);
+                  setEditingProduct(null);
+                }}
+                className="p-1.5 rounded-lg bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800 transition-all cursor-pointer"
+                title="Fechar"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1262,8 +1342,11 @@ export function ProductCatalogManagement({
               <div className="pt-2 flex items-center justify-end gap-3 border-t border-slate-800">
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold"
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    setEditingProduct(null);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold cursor-pointer"
                 >
                   Cancelar
                 </button>
@@ -1272,7 +1355,7 @@ export function ProductCatalogManagement({
                   className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-emerald-950/80 active:scale-95 transition-all cursor-pointer"
                 >
                   <CheckCircle2 className="w-4 h-4 text-slate-950" />
-                  <span>Salvar Produto no Catálogo</span>
+                  <span>{editingProduct ? 'Salvar Alterações da Peça' : 'Salvar Produto no Catálogo'}</span>
                 </button>
               </div>
             </form>
