@@ -34,7 +34,6 @@ import {
 import { useAuth } from '@/components/auth/AuthContext';
 
 export function LandingPage() {
-  const { loginAsDemo } = useAuth();
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const [infoTab, setInfoTab] = useState<'solucoes' | 'sobre' | 'setores' | 'qualidade'>('solucoes');
 
@@ -240,17 +239,6 @@ export function LandingPage() {
               <span className="text-slate-400 hidden xs:inline">Sistema:</span>
               <span className="text-emerald-400 font-bold">Online</span>
             </div>
-
-            {/* Botão de Entrada Imediata */}
-            <button
-              type="button"
-              onClick={loginAsDemo}
-              className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-cyan-500 via-sky-500 to-teal-400 hover:from-cyan-400 hover:to-sky-400 text-slate-950 text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-cyan-950/80 active:scale-95 transition-all cursor-pointer"
-              title="Acessar o ERP DeltaFix imediatamente"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Entrar no Sistema</span>
-            </button>
           </div>
         </div>
       </header>
@@ -657,7 +645,7 @@ export function LandingPage() {
                 <button
                   type="submit"
                   disabled={loginLoading}
-                  className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-600 via-sky-600 to-cyan-500 hover:from-cyan-500 hover:to-sky-500 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-cyan-950/80 hover:shadow-cyan-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-1 disabled:opacity-50"
+                  className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-600 via-sky-600 to-cyan-500 hover:from-cyan-500 hover:to-sky-500 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-cyan-950/80 hover:shadow-cyan-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-2 disabled:opacity-50 cursor-pointer"
                 >
                   {loginLoading ? (
                     <>
@@ -670,16 +658,6 @@ export function LandingPage() {
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}
-                </button>
-
-                {/* Botão Acesso Imediato / Demonstração */}
-                <button
-                  type="button"
-                  onClick={loginAsDemo}
-                  className="w-full py-2 px-3 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 hover:border-cyan-500 text-cyan-300 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>Acesso Imediato / Ver Sistema Completo</span>
                 </button>
 
                 {/* Atalho Super Admin */}
