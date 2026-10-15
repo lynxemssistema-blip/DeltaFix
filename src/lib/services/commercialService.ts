@@ -554,7 +554,7 @@ export function addApprovalRequest(req: Omit<UserApprovalRequest, 'id' | 'status
 
 export function decideApprovalRequest(
   id: string,
-  decision: 'aprovado' | 'rejeitado',
+  decision: 'aprovado' | 'rejeitado' | 'cancelado' | 'pendente',
   decidedBy: string,
   assignedRole?: UserApprovalRequest['perfil_atribuido']
 ): UserApprovalRequest[] {
@@ -571,6 +571,35 @@ export function decideApprovalRequest(
     }
     return item;
   });
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('deltafix_user_approvals', JSON.stringify(updated));
+  }
+  return updated;
+}
+
+export function updateApprovalUser(
+  id: string,
+  updates: Partial<UserApprovalRequest>
+): UserApprovalRequest[] {
+  const list = getSavedApprovals();
+  const updated = list.map((item) => {
+    if (item.id === id) {
+      return {
+        ...item,
+        ...updates
+      };
+    }
+    return item;
+  });
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('deltafix_user_approvals', JSON.stringify(updated));
+  }
+  return updated;
+}
+
+export function deleteApprovalRequest(id: string): UserApprovalRequest[] {
+  const list = getSavedApprovals();
+  const updated = list.filter((item) => item.id !== id);
   if (typeof window !== 'undefined') {
     localStorage.setItem('deltafix_user_approvals', JSON.stringify(updated));
   }

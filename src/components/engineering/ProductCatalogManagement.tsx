@@ -8,6 +8,13 @@ import {
   saveCatalogProduct,
   deleteCatalogProduct
 } from '@/lib/services/productCatalogService';
+import {
+  getFastenerFamilies,
+  saveFastenerFamily,
+  deleteFastenerFamily,
+  resetFastenerFamilies,
+  FastenerFamilyItem
+} from '@/lib/services/fastenerFamilyService';
 import { SteelColorBadge, getSteelColorBySpec } from '@/components/ui/SteelColorBadge';
 import {
   Boxes,
@@ -35,7 +42,10 @@ import {
   Image as ImageIcon,
   Paperclip,
   Download,
-  Eye
+  Eye,
+  Settings,
+  Settings2,
+  RotateCcw
 } from 'lucide-react';
 
 interface ProductCatalogManagementProps {
@@ -57,6 +67,14 @@ export function ProductCatalogManagement({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductItem | null>(null);
   const [modalSuccessMsg, setModalSuccessMsg] = useState<string | null>(null);
+
+  // Gestão Dinâmica de Famílias de Fixadores (Criar, Editar, Deletar)
+  const [fastenerFamilies, setFastenerFamilies] = useState<FastenerFamilyItem[]>([]);
+  const [isFamilyManagerOpen, setIsFamilyManagerOpen] = useState(false);
+  const [familyFormName, setFamilyFormName] = useState('');
+  const [familyFormDesc, setFamilyFormDesc] = useState('');
+  const [editingFamilyItem, setEditingFamilyItem] = useState<FastenerFamilyItem | null>(null);
+  const [familyManagerMsg, setFamilyManagerMsg] = useState<{ text: string; type: 'success' | 'danger' } | null>(null);
 
   // Estados do formulário livre
   const [formCodigoDelta, setFormCodigoDelta] = useState('');
@@ -168,10 +186,106 @@ export function ProductCatalogManagement({
     setIsModalOpen(true);
   };
 
-  // Carregar produtos
+  // Carregar produtos e famílias dinâmicas
   useEffect(() => {
     setProducts(getSavedCatalogProducts());
+    setFastenerFamilies(getFastenerFamilies());
   }, []);
+
+  // Manipulação de Famílias de Fixadores (Criar, Editar, Deletar, Resetar)
+  const handleSaveFamily = (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = familyFormName.trim();
+    if (!name) return;
+
+    const updated = saveFastenerFamily({
+      id: editingFamilyItem ? editingFamilyItem.id : undefined,
+      name,
+      description: familyFormDesc.trim() || undefined
+    });
+
+    setFastenerFamilies(updated);
+
+    // Se estava criando uma nova família, seleciona-a automaticamente no formulário da peça
+    if (!editingFamilyItem) {
+      const created = updated.find((f) => f.name.toLowerCase() === name.toLowerCase());
+      if (created) {
+        setFormFamily(created.id);
+      }
+    }
+
+    setFamilyManagerMsg({
+      text: editingFamilyItem
+        ? `Família "${name}" atualizada com sucesso!`
+        : `Nova família "${name}" criada com sucesso!`,
+      type: 'success'
+    });
+
+    setFamilyFormName('');
+    setFamilyFormDesc('');
+    setEditingFamilyItem(null);
+
+    setTimeout(() => setFamilyManagerMsg(null), 3000);
+  };
+
+  const handleStartEditFamily = (fam: FastenerFamilyItem) => {
+    setEditingFamilyItem(fam);
+    setFamilyFormName(fam.name);
+    setFamilyFormDesc(fam.description || '');
+  };
+
+  const handleCancelEditFamily = () => {
+    setEditingFamilyItem(null);
+    setFamilyFormName('');
+    setFamilyFormDesc('');
+  };
+
+  const handleDeleteFamily = (fam: FastenerFamilyItem) => {
+    const countUsage = products.filter(
+      (p) =>
+        p.family?.toLowerCase() === fam.id.toLowerCase() ||
+        p.family?.toLowerCase() === fam.name.toLowerCase()
+    ).length;
+
+    const confirmMsg =
+      countUsage > 0
+        ? `Atenção: A família "${fam.name}" está associada a ${countUsage} produto(s) no catálogo. Deseja realmente excluí-la?`
+        : `Deseja realmente excluir a família de fixadores "${fam.name}"?`;
+
+    if (window.confirm(confirmMsg)) {
+      const updated = deleteFastenerFamily(fam.id);
+      setFastenerFamilies(updated);
+
+      if (formFamily === fam.id) {
+        setFormFamily(updated[0]?.id || 'parafuso');
+      }
+      if (editingFamilyItem?.id === fam.id) {
+        handleCancelEditFamily();
+      }
+
+      setFamilyManagerMsg({
+        text: `Família "${fam.name}" excluída com sucesso.`,
+        type: 'danger'
+      });
+      setTimeout(() => setFamilyManagerMsg(null), 3000);
+    }
+  };
+
+  const handleResetFamiliesToDefault = () => {
+    if (
+      window.confirm(
+        'Deseja restaurar as famílias padrão do sistema (Parafusos, Porcas, Arruelas, Prisioneiros, Barras, Chumbadores e Peças Usinadas)?'
+      )
+    ) {
+      const defaults = resetFastenerFamilies();
+      setFastenerFamilies(defaults);
+      setFamilyManagerMsg({
+        text: 'Famílias restauradas para os padrões originais com sucesso!',
+        type: 'success'
+      });
+      setTimeout(() => setFamilyManagerMsg(null), 3000);
+    }
+  };
 
   // Cálculo de peso teórico automático estimado para peça sob medida
   const pesoTeoricoCalculado = useMemo(() => {
@@ -320,6 +434,16 @@ export function ProductCatalogManagement({
 
           <button
             type="button"
+            onClick={() => setIsFamilyManagerOpen(true)}
+            className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-cyan-300 text-xs font-bold flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+            title="Criar, editar ou excluir famílias de fixadores"
+          >
+            <Settings className="w-4 h-4 text-cyan-400" />
+            <span>Famílias do Fixador</span>
+          </button>
+
+          <button
+            type="button"
             onClick={handleOpenCreateModal}
             className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-emerald-950/80 active:scale-95 transition-all cursor-pointer"
           >
@@ -388,15 +512,14 @@ export function ProductCatalogManagement({
           <select
             value={familyFilter}
             onChange={(e) => setFamilyFilter(e.target.value)}
-            className="bg-slate-950 border border-slate-700/80 rounded-lg px-2.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 font-mono"
+            className="bg-slate-950 border border-slate-700/80 rounded-lg px-2.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 font-mono cursor-pointer"
           >
-            <option value="todos">Todas as Famílias</option>
-            <option value="parafuso">Parafusos</option>
-            <option value="porca">Porcas</option>
-            <option value="arruela">Arruelas</option>
-            <option value="prisioneiro">Prisioneiros</option>
-            <option value="barra_roscada">Barras Roscadas</option>
-            <option value="chumbador">Chumbadores</option>
+            <option value="todos">Todas as Famílias ({fastenerFamilies.length})</option>
+            {fastenerFamilies.map((fam) => (
+              <option key={fam.id} value={fam.id}>
+                {fam.name}
+              </option>
+            ))}
           </select>
 
           {/* Filtro por Tipo */}
@@ -968,21 +1091,39 @@ export function ProductCatalogManagement({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-mono text-slate-300 font-bold uppercase mb-1">
-                    Família do Fixador:
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[11px] font-mono text-slate-300 font-bold uppercase">
+                      Família do Fixador:
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setIsFamilyManagerOpen(true)}
+                      className="text-[10px] font-mono text-cyan-400 hover:text-cyan-300 flex items-center gap-1 hover:underline cursor-pointer bg-cyan-950/60 hover:bg-cyan-900/60 px-2 py-0.5 rounded border border-cyan-800/60 transition-all"
+                      title="Criar, Editar ou Excluir Famílias de Fixadores"
+                    >
+                      <Settings className="w-3 h-3 text-cyan-400" />
+                      <span>Gerenciar Famílias</span>
+                    </button>
+                  </div>
                   <select
                     value={formFamily}
-                    onChange={(e) => setFormFamily(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono focus:border-cyan-500"
+                    onChange={(e) => {
+                      if (e.target.value === '__NEW_FAMILY__') {
+                        setIsFamilyManagerOpen(true);
+                      } else {
+                        setFormFamily(e.target.value);
+                      }
+                    }}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono focus:border-cyan-500 cursor-pointer"
                   >
-                    <option value="parafuso">Parafuso Especial</option>
-                    <option value="porca">Porca Especial</option>
-                    <option value="arruela">Arruela Especial</option>
-                    <option value="prisioneiro">Prisioneiro / Eixo Roscado</option>
-                    <option value="barra_roscada">Barra Roscada</option>
-                    <option value="chumbador">Chumbador de Ancoragem</option>
-                    <option value="outros">Peça Usinada Sob Medida</option>
+                    {fastenerFamilies.map((fam) => (
+                      <option key={fam.id} value={fam.id}>
+                        {fam.name}
+                      </option>
+                    ))}
+                    <option value="__NEW_FAMILY__" className="text-cyan-400 font-bold bg-slate-900">
+                      + Criar / Gerenciar Famílias...
+                    </option>
                   </select>
                 </div>
               </div>
@@ -1416,6 +1557,225 @@ export function ProductCatalogManagement({
                   />
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          7. MODAL: GERENCIAMENTO DE FAMÍLIAS DE FIXADORES (CRIAR, EDITAR, DELETAR)
+          ========================================================================= */}
+      {isFamilyManagerOpen && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl relative">
+            {/* Topbar */}
+            <div className="px-6 py-4 border-b border-slate-800 bg-slate-950 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-mono text-cyan-400 font-bold uppercase tracking-wider flex items-center gap-1">
+                  <Settings className="w-3.5 h-3.5" />
+                  Engenharia e Catálogo
+                </span>
+                <h3 className="text-base font-black text-white">GERENCIAR FAMÍLIAS DO FIXADOR</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsFamilyManagerOpen(false);
+                  handleCancelEditFamily();
+                }}
+                className="p-1.5 rounded-lg bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800 transition-all cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Feedback Message */}
+            {familyManagerMsg && (
+              <div
+                className={`mx-6 mt-4 p-3 rounded-xl text-xs font-mono font-bold flex items-center justify-between border ${
+                  familyManagerMsg.type === 'success'
+                    ? 'bg-emerald-950/80 border-emerald-800 text-emerald-300'
+                    : 'bg-rose-950/80 border-rose-800 text-rose-300'
+                }`}
+              >
+                <span>{familyManagerMsg.text}</span>
+                <button type="button" onClick={() => setFamilyManagerMsg(null)}>
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            {/* Conteúdo rolável */}
+            <div className="p-6 overflow-y-auto space-y-5 flex-1">
+              {/* Formulário de Adicionar / Editar Família */}
+              <form
+                onSubmit={handleSaveFamily}
+                className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-3"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white uppercase font-mono flex items-center gap-1.5">
+                    {editingFamilyItem ? (
+                      <>
+                        <Edit3 className="w-4 h-4 text-cyan-400" />
+                        <span>Editar Família Existente</span>
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4 text-emerald-400" />
+                        <span>Adicionar Nova Família</span>
+                      </>
+                    )}
+                  </span>
+                  {editingFamilyItem && (
+                    <button
+                      type="button"
+                      onClick={handleCancelEditFamily}
+                      className="text-[10px] font-mono text-slate-400 hover:text-white underline cursor-pointer"
+                    >
+                      Cancelar Edição
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10px] font-mono text-slate-400 uppercase mb-1">
+                      Nome da Família:
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={familyFormName}
+                      onChange={(e) => setFamilyFormName(e.target.value)}
+                      placeholder="Ex: Pino Cônico Especial, Grampo U, Rebite Estrutural..."
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:border-cyan-500 font-sans"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-1 flex items-end">
+                    <button
+                      type="submit"
+                      className="w-full py-2 px-3 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1 shadow-md active:scale-95 transition-all cursor-pointer"
+                    >
+                      {editingFamilyItem ? (
+                        <>
+                          <CheckCircle2 className="w-4 h-4 text-slate-950" />
+                          <span>Salvar</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4 text-slate-950" />
+                          <span>Adicionar</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-mono text-slate-500 uppercase mb-1">
+                    Descrição / Aplicação Típica (Opcional):
+                  </label>
+                  <input
+                    type="text"
+                    value={familyFormDesc}
+                    onChange={(e) => setFamilyFormDesc(e.target.value)}
+                    placeholder="Ex: Fixadores de acoplamento cônico para linha pesada de mineração"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-300 focus:border-cyan-500"
+                  />
+                </div>
+              </form>
+
+              {/* Lista das Famílias Ativas */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
+                  <span>Famílias Registradas ({fastenerFamilies.length}):</span>
+                  <span>Ações</span>
+                </div>
+
+                <div className="divide-y divide-slate-800/80 border border-slate-800 rounded-xl bg-slate-950/60 overflow-hidden">
+                  {fastenerFamilies.map((fam) => {
+                    const isSelected = editingFamilyItem?.id === fam.id;
+                    const countInUse = products.filter(
+                      (p) =>
+                        p.family?.toLowerCase() === fam.id.toLowerCase() ||
+                        p.family?.toLowerCase() === fam.name.toLowerCase()
+                    ).length;
+
+                    return (
+                      <div
+                        key={fam.id}
+                        className={`p-3 flex items-center justify-between gap-3 transition-colors ${
+                          isSelected ? 'bg-cyan-950/40 border-l-2 border-cyan-400' : 'hover:bg-slate-900/40'
+                        }`}
+                      >
+                        <div className="overflow-hidden">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-white text-xs">{fam.name}</span>
+                            {fam.isDefault && (
+                              <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-slate-800 text-slate-400">
+                                Padrão
+                              </span>
+                            )}
+                            {countInUse > 0 && (
+                              <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-cyan-950 text-cyan-300 border border-cyan-800">
+                                {countInUse} {countInUse === 1 ? 'item' : 'itens'}
+                              </span>
+                            )}
+                          </div>
+                          {fam.description && (
+                            <p className="text-[11px] text-slate-400 truncate mt-0.5">{fam.description}</p>
+                          )}
+                          <div className="text-[10px] text-slate-500 font-mono">ID: {fam.id}</div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleStartEditFamily(fam)}
+                            className="p-1.5 rounded-lg bg-slate-900 hover:bg-cyan-950 border border-slate-800 hover:border-cyan-800 text-slate-300 hover:text-cyan-300 transition-all cursor-pointer"
+                            title="Editar nome da família"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteFamily(fam)}
+                            className="p-1.5 rounded-lg bg-slate-900 hover:bg-rose-950 border border-slate-800 hover:border-rose-800 text-slate-400 hover:text-rose-300 transition-all cursor-pointer"
+                            title="Excluir família"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Rodapé do Modal de Famílias */}
+            <div className="px-6 py-3 border-t border-slate-800 bg-slate-950 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={handleResetFamiliesToDefault}
+                className="text-[11px] font-mono text-slate-400 hover:text-cyan-300 flex items-center gap-1 hover:underline cursor-pointer"
+                title="Restaurar a lista de famílias padrão"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Restaurar Padrões</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsFamilyManagerOpen(false);
+                  handleCancelEditFamily();
+                }}
+                className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold cursor-pointer"
+              >
+                Concluir
+              </button>
             </div>
           </div>
         </div>

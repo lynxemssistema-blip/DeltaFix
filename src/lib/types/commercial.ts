@@ -122,7 +122,7 @@ export interface UserApprovalRequest {
   empresa_cnpj: string;
   perfil_solicitado: 'cliente_comprador' | 'engenharia_especificador' | 'fornecedor_parceiro';
   perfil_atribuido?: 'master' | 'engenharia' | 'comercial' | 'pcp_operador' | 'cliente';
-  status: 'pendente' | 'aprovado' | 'rejeitado';
+  status: 'pendente' | 'aprovado' | 'rejeitado' | 'cancelado';
   data_solicitacao: string;
   data_decisao?: string;
   decidido_por?: string;
