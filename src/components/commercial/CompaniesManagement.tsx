@@ -42,7 +42,9 @@ import {
   Image as ImageIcon,
   User,
   Link as LinkIcon,
-  X
+  X,
+  Globe,
+  Bell
 } from 'lucide-react';
 
 function Instagram({ className = 'w-4 h-4' }: { className?: string }) {
@@ -59,6 +61,40 @@ function Instagram({ className = 'w-4 h-4' }: { className?: string }) {
       <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
       <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
       <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+    </svg>
+  );
+}
+
+function LinkedinIcon({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
+      <rect width="4" height="12" x="2" y="9" />
+      <circle cx="4" cy="4" r="2" />
+    </svg>
+  );
+}
+
+function WhatsappIcon({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
     </svg>
   );
 }
@@ -93,6 +129,10 @@ export function CompaniesManagement() {
   const [formInscricaoEstadual, setFormInscricaoEstadual] = useState('');
   const [formLogoUrl, setFormLogoUrl] = useState('');
   const [formInstagram, setFormInstagram] = useState('');
+  const [formLinkedin, setFormLinkedin] = useState('');
+  const [formWebsite, setFormWebsite] = useState('');
+  const [formCelularNotificacoes, setFormCelularNotificacoes] = useState('');
+  const [formReceberNotificacoesWhatsapp, setFormReceberNotificacoesWhatsapp] = useState(true);
   const [formIsCliente, setFormIsCliente] = useState(true);
   const [formIsFornecedor, setFormIsFornecedor] = useState(false);
   const [formSegmento, setFormSegmento] = useState<SegmentoIndustrial>('Mineração');
@@ -138,6 +178,10 @@ export function CompaniesManagement() {
     setFormInscricaoEstadual('');
     setFormLogoUrl('');
     setFormInstagram('');
+    setFormLinkedin('');
+    setFormWebsite('');
+    setFormCelularNotificacoes('');
+    setFormReceberNotificacoesWhatsapp(true);
     setFormIsCliente(true);
     setFormIsFornecedor(false);
     setFormSegmento('Mineração');
@@ -171,6 +215,10 @@ export function CompaniesManagement() {
     setFormInscricaoEstadual(comp.inscricao_estadual || '');
     setFormLogoUrl(comp.logo_url || '');
     setFormInstagram(comp.instagram || '');
+    setFormLinkedin(comp.linkedin || '');
+    setFormWebsite(comp.website || '');
+    setFormCelularNotificacoes(comp.celular_notificacoes || comp.contato_comercial.telefone || '');
+    setFormReceberNotificacoesWhatsapp(comp.receber_notificacoes_whatsapp ?? true);
     setFormIsCliente(comp.is_cliente);
     setFormIsFornecedor(comp.is_fornecedor);
     setFormSegmento(comp.segmento);
@@ -275,6 +323,10 @@ export function CompaniesManagement() {
       inscricao_estadual: formInscricaoEstadual,
       logo_url: formLogoUrl || undefined,
       instagram: formInstagram || undefined,
+      linkedin: formLinkedin || undefined,
+      website: formWebsite || undefined,
+      celular_notificacoes: formCelularNotificacoes || undefined,
+      receber_notificacoes_whatsapp: formReceberNotificacoesWhatsapp,
       is_cliente: formIsCliente,
       is_fornecedor: formIsFornecedor,
       segmento: formSegmento,
@@ -503,20 +555,72 @@ export function CompaniesManagement() {
                             {comp.nome_fantasia}
                           </div>
                         )}
-                        {comp.instagram && (
-                          <a
-                            href={
-                              comp.instagram.startsWith('http')
-                                ? comp.instagram
-                                : `https://instagram.com/${comp.instagram.replace('@', '')}`
-                            }
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[11px] text-pink-400 hover:text-pink-300 font-mono flex items-center gap-1 mt-0.5"
-                          >
-                            <Instagram className="w-3 h-3 text-pink-400" />
-                            <span>{comp.instagram.startsWith('@') ? comp.instagram : `@${comp.instagram}`}</span>
-                          </a>
+                        {/* Redes Sociais & Conexões */}
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                          {comp.instagram && (
+                            <a
+                              href={
+                                comp.instagram.startsWith('http')
+                                  ? comp.instagram
+                                  : `https://instagram.com/${comp.instagram.replace('@', '')}`
+                              }
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] text-pink-400 hover:text-pink-300 font-mono flex items-center gap-1 bg-pink-950/40 border border-pink-800/60 px-1.5 py-0.5 rounded transition-colors"
+                              title="Perfil no Instagram"
+                            >
+                              <Instagram className="w-3 h-3 text-pink-400" />
+                              <span>{comp.instagram.startsWith('@') ? comp.instagram : `@${comp.instagram}`}</span>
+                            </a>
+                          )}
+
+                          {comp.linkedin && (
+                            <a
+                              href={
+                                comp.linkedin.startsWith('http')
+                                  ? comp.linkedin
+                                  : `https://linkedin.com/company/${comp.linkedin.replace(/^@/, '')}`
+                              }
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] text-sky-400 hover:text-sky-300 font-mono flex items-center gap-1 bg-sky-950/40 border border-sky-800/60 px-1.5 py-0.5 rounded transition-colors"
+                              title="LinkedIn da Empresa"
+                            >
+                              <LinkedinIcon className="w-3 h-3 text-sky-400" />
+                              <span>LinkedIn</span>
+                            </a>
+                          )}
+
+                          {comp.website && (
+                            <a
+                              href={comp.website.startsWith('http') ? comp.website : `https://${comp.website}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] text-cyan-400 hover:text-cyan-300 font-mono flex items-center gap-1 bg-cyan-950/40 border border-cyan-800/60 px-1.5 py-0.5 rounded transition-colors"
+                              title="Website Oficial"
+                            >
+                              <Globe className="w-3 h-3 text-cyan-400" />
+                              <span>Site</span>
+                            </a>
+                          )}
+                        </div>
+
+                        {/* Celular para Notificações Automáticas do Sistema */}
+                        {comp.celular_notificacoes && (
+                          <div className="flex items-center gap-1.5 mt-2 text-[10px] font-mono text-emerald-300 bg-emerald-950/70 border border-emerald-800/80 px-2 py-0.5 rounded-lg w-fit">
+                            <WhatsappIcon className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            <span className="text-slate-400">Mensagens Automáticas:</span>
+                            <span className="font-bold text-white">{formatPhone(comp.celular_notificacoes)}</span>
+                            <a
+                              href={`https://wa.me/55${comp.celular_notificacoes.replace(/\D/g, '')}?text=Ola%20${encodeURIComponent(comp.razao_social)}%2C%20atualizacao%20DeltaFix`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[9px] text-emerald-400 hover:text-emerald-300 underline font-bold ml-1"
+                              title="Abrir WhatsApp direto"
+                            >
+                              WhatsApp ↗
+                            </a>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -650,7 +754,7 @@ export function CompaniesManagement() {
                   <th className="py-3 px-4">Segmento</th>
                   <th className="py-3 px-4">Cidade / UF</th>
                   <th className="py-3 px-4">Contato Comercial</th>
-                  <th className="py-3 px-4">Instagram</th>
+                  <th className="py-3 px-4">Redes & Notificações Auto</th>
                   <th className="py-3 px-4 text-right">Ações</th>
                 </tr>
               </thead>
@@ -723,25 +827,66 @@ export function CompaniesManagement() {
                         <div className="text-[10px] text-slate-400">{formatPhone(comp.contato_comercial.telefone)}</div>
                       </td>
 
-                      {/* Instagram */}
+                      {/* Redes & Notificações Auto */}
                       <td className="py-3 px-4 whitespace-nowrap">
-                        {comp.instagram ? (
-                          <a
-                            href={
-                              comp.instagram.startsWith('http')
-                                ? comp.instagram
-                                : `https://instagram.com/${comp.instagram.replace('@', '')}`
-                            }
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-pink-400 hover:text-pink-300 font-mono text-[11px] flex items-center gap-1"
-                          >
-                            <Instagram className="w-3.5 h-3.5" />
-                            <span>{comp.instagram.startsWith('@') ? comp.instagram : `@${comp.instagram}`}</span>
-                          </a>
-                        ) : (
-                          <span className="text-slate-600 font-mono text-[10px]">--</span>
-                        )}
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            {comp.instagram && (
+                              <a
+                                href={
+                                  comp.instagram.startsWith('http')
+                                    ? comp.instagram
+                                    : `https://instagram.com/${comp.instagram.replace('@', '')}`
+                                }
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1 rounded bg-pink-950/60 hover:bg-pink-900 border border-pink-800 text-pink-300"
+                                title={`Instagram: ${comp.instagram}`}
+                              >
+                                <Instagram className="w-3 h-3" />
+                              </a>
+                            )}
+
+                            {comp.linkedin && (
+                              <a
+                                href={
+                                  comp.linkedin.startsWith('http')
+                                    ? comp.linkedin
+                                    : `https://linkedin.com/company/${comp.linkedin.replace(/^@/, '')}`
+                                }
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1 rounded bg-sky-950/60 hover:bg-sky-900 border border-sky-800 text-sky-300"
+                                title="LinkedIn da Empresa"
+                              >
+                                <LinkedinIcon className="w-3 h-3" />
+                              </a>
+                            )}
+
+                            {comp.website && (
+                              <a
+                                href={comp.website.startsWith('http') ? comp.website : `https://${comp.website}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1 rounded bg-cyan-950/60 hover:bg-cyan-900 border border-cyan-800 text-cyan-300"
+                                title="Website Oficial"
+                              >
+                                <Globe className="w-3 h-3" />
+                              </a>
+                            )}
+
+                            {!comp.instagram && !comp.linkedin && !comp.website && (
+                              <span className="text-slate-600 font-mono text-[10px]">--</span>
+                            )}
+                          </div>
+
+                          {comp.celular_notificacoes && (
+                            <div className="flex items-center gap-1 text-[10px] font-mono text-emerald-300">
+                              <WhatsappIcon className="w-3 h-3 text-emerald-400 shrink-0" />
+                              <span className="font-bold">{formatPhone(comp.celular_notificacoes)}</span>
+                            </div>
+                          )}
+                        </div>
                       </td>
 
                       {/* Ações */}
@@ -1029,6 +1174,82 @@ export function CompaniesManagement() {
                       />
                     </div>
                   </div>
+
+                  {/* LinkedIn */}
+                  <div>
+                    <label className="block text-[10px] font-mono text-slate-400 uppercase mb-1">
+                      LinkedIn da Empresa:
+                    </label>
+                    <div className="relative">
+                      <LinkedinIcon className="w-4 h-4 absolute left-3 top-2.5 text-sky-400" />
+                      <input
+                        type="text"
+                        value={formLinkedin}
+                        onChange={(e) => setFormLinkedin(e.target.value)}
+                        placeholder="https://linkedin.com/company/empresa"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:border-cyan-500 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Website Oficial */}
+                  <div>
+                    <label className="block text-[10px] font-mono text-slate-400 uppercase mb-1">
+                      Website Oficial da Empresa:
+                    </label>
+                    <div className="relative">
+                      <Globe className="w-4 h-4 absolute left-3 top-2.5 text-cyan-400" />
+                      <input
+                        type="text"
+                        value={formWebsite}
+                        onChange={(e) => setFormWebsite(e.target.value)}
+                        placeholder="https://www.empresa.com.br"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:border-cyan-500 font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bloco de Notificações Automáticas no WhatsApp / Celular */}
+                <div className="mt-3 p-3 rounded-xl bg-slate-950/80 border border-emerald-900/60 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-mono uppercase font-bold text-emerald-400 flex items-center gap-1.5">
+                      <WhatsappIcon className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Celular para Mensagens Automáticas do Sistema:</span>
+                    </label>
+                    <span className="text-[9px] font-mono text-emerald-300/90 bg-emerald-950/80 border border-emerald-800 px-1.5 py-0.2 rounded font-bold">
+                      Disparos WhatsApp
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
+                    <div className="sm:col-span-2 relative">
+                      <WhatsappIcon className="w-4 h-4 absolute left-3 top-2.5 text-emerald-400" />
+                      <input
+                        type="text"
+                        value={formCelularNotificacoes}
+                        onChange={(e) => setFormCelularNotificacoes(formatPhone(e.target.value))}
+                        placeholder="(00) 90000-0000"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-xs text-white font-mono placeholder-slate-600 focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={formReceberNotificacoesWhatsapp}
+                        onChange={(e) => setFormReceberNotificacoesWhatsapp(e.target.checked)}
+                        className="w-4 h-4 rounded bg-slate-900 border-slate-700 text-emerald-500 focus:ring-emerald-500"
+                      />
+                      <span className="text-[11px] font-semibold text-emerald-300">
+                        Ativar Notificações
+                      </span>
+                    </label>
+                  </div>
+
+                  <p className="text-[10px] text-slate-500 leading-relaxed font-sans">
+                    💡 Este contato receberá avisos automáticos via WhatsApp quando cotações forem aprovadas, ordens de fabricação (OP) iniciarem na fábrica e quando os fixadores forem expedidos com código de rastreamento.
+                  </p>
                 </div>
               </div>
 

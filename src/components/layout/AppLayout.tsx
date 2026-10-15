@@ -41,7 +41,8 @@ import {
   Command,
   Flame,
   FileCode2,
-  HardHat
+  HardHat,
+  Palette
 } from 'lucide-react';
 
 interface AppLayoutProps {
@@ -55,6 +56,7 @@ export type ActiveModule =
   | 'produtos'
   | 'normas'
   | 'desenho'
+  | 'almoxarifado_acos'
   | 'pcp_estrutura'
   | 'pcp_roteiros'
   | 'pcp_recursos'
@@ -396,7 +398,31 @@ export function AppLayout({ initialProducts }: AppLayoutProps) {
               </div>
             </div>
 
-            {/* 4. PCP & CHÃO DE FÁBRICA */}
+            {/* 4. ALMOXARIFADO & MATÉRIAS-PRIMAS */}
+            <div className="space-y-1">
+              {!sidebarCollapsed && (
+                <span className="text-[10px] font-mono uppercase tracking-wider text-pink-400 font-bold px-3">
+                  📦 ALMOXARIFADO & AÇOS
+                </span>
+              )}
+              <div className="space-y-0.5">
+                <button
+                  type="button"
+                  onClick={() => setActiveModule('almoxarifado_acos')}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs transition-all ${
+                    activeModule === 'almoxarifado_acos'
+                      ? 'bg-pink-950/80 text-pink-300 font-bold border border-pink-700 shadow-md'
+                      : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+                  }`}
+                  title="Codificação de Aços e Pontas Pintadas do Rack"
+                >
+                  <Palette className="w-4 h-4 shrink-0 text-pink-400" />
+                  {!sidebarCollapsed && <span>🎨 Codificação de Aços</span>}
+                </button>
+              </div>
+            </div>
+
+            {/* 5. PCP & CHÃO DE FÁBRICA */}
             <div className="space-y-1">
               {!sidebarCollapsed && (
                 <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500 font-bold px-3">
@@ -534,6 +560,8 @@ export function AppLayout({ initialProducts }: AppLayoutProps) {
               <EngineeringConfigurator initialProducts={initialProducts} defaultSubTab="desenho" />
             )}
 
+            {activeModule === 'almoxarifado_acos' && <PcpManagement initialSubTab="materiais" />}
+
             {activeModule === 'pcp_estrutura' && <PcpManagement initialSubTab="estrutura" />}
 
             {activeModule === 'pcp_roteiros' && <PcpManagement initialSubTab="roteiros" />}
@@ -614,6 +642,14 @@ export function AppLayout({ initialProducts }: AppLayoutProps) {
                 className="w-full text-left p-2 rounded-lg hover:bg-slate-800 text-slate-200 flex items-center justify-between"
               >
                 <span>📐 Prancha Técnica CAD 2D A3 & PDF</span>
+                <span className="text-[10px] font-mono text-cyan-400">Ir</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSelectModule('almoxarifado_acos')}
+                className="w-full text-left p-2 rounded-lg hover:bg-slate-800 text-slate-200 flex items-center justify-between"
+              >
+                <span>📦 Codificação de Aço / Almoxarifado (Pontas Pintadas)</span>
                 <span className="text-[10px] font-mono text-cyan-400">Ir</span>
               </button>
               <button

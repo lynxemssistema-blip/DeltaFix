@@ -38,6 +38,12 @@ export const DEFAULT_COMPANIES: CompanyPartner[] = [
       telefone: '(31) 98744-5512',
       cargo: 'Engenheiro de Confiabilidade Mecânica'
     },
+    logo_url: 'https://images.unsplash.com/photo-1541888946425-d0fbb186f5f7?auto=format&fit=crop&w=200&q=80',
+    instagram: '@valeglobal',
+    linkedin: 'https://www.linkedin.com/company/vale',
+    website: 'https://www.vale.com',
+    celular_notificacoes: '(31) 98744-5512',
+    receber_notificacoes_whatsapp: true,
     observacoes: 'Fixadores especiais ASTM A325 e A193 B7 para britadores e transportadores de correia.',
     created_at: '2026-01-10T08:30:00Z'
   },
@@ -70,6 +76,12 @@ export const DEFAULT_COMPANIES: CompanyPartner[] = [
       telefone: '(31) 99123-4567',
       cargo: 'Engenheiro Chefe de Laminação'
     },
+    logo_url: 'https://images.unsplash.com/photo-1504917599217-d4dc5ebe6122?auto=format&fit=crop&w=200&q=80',
+    instagram: '@usiminasoficial',
+    linkedin: 'https://www.linkedin.com/company/usiminas',
+    website: 'https://www.usiminas.com',
+    celular_notificacoes: '(31) 99123-4567',
+    receber_notificacoes_whatsapp: true,
     observacoes: 'Cliente e fornecedor de tarugos laminados e barras redondas trefiladas SAE 4140.',
     created_at: '2026-02-15T10:15:00Z'
   },

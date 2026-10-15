@@ -23,6 +23,10 @@ export interface CompanyPartner {
   inscricao_estadual?: string;
   logo_url?: string; // URL ou Data URL do Logotipo/Foto
   instagram?: string; // Ex: @parafusosdelta ou link do perfil
+  linkedin?: string; // Link do LinkedIn da empresa ou perfil profissional
+  website?: string; // Website corporativo ou e-commerce
+  celular_notificacoes?: string; // Número de celular/WhatsApp que recebe mensagens automáticas do sistema
+  receber_notificacoes_whatsapp?: boolean; // Flag de envio automático ativado
   is_cliente: boolean;
   is_fornecedor: boolean;
   segmento: SegmentoIndustrial;

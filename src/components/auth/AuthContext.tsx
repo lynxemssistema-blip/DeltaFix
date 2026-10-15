@@ -20,14 +20,33 @@ interface AuthContextType {
   isLoading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  loginAsDemo: () => void;
 }
+
+const DEMO_USER: User = {
+  id: 'demo-user-id',
+  app_metadata: {},
+  user_metadata: { full_name: 'Edson Manoel (Demo)' },
+  aud: 'authenticated',
+  created_at: new Date().toISOString()
+} as User;
+
+const DEMO_PROFILE: UserProfile = {
+  id: 'demo-user-id',
+  email: 'edsonmanoel2012@gmail.com',
+  full_name: 'Edson Manoel',
+  role: 'super_admin',
+  departamento: 'Diretoria de Engenharia & Manufatura',
+  is_active: true
+};
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   profile: null,
   isLoading: true,
   signOut: async () => {},
-  refreshProfile: async () => {}
+  refreshProfile: async () => {},
+  loginAsDemo: () => {}
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -62,6 +81,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    // Check if demo mode was active
+    if (typeof window !== 'undefined' && localStorage.getItem('deltafix_demo_session') === 'true') {
+      setUser(DEMO_USER);
+      setProfile(DEMO_PROFILE);
+      setIsLoading(false);
+      return;
+    }
+
     // Check initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       const currentUser = session?.user || null;
@@ -90,8 +117,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  const loginAsDemo = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('deltafix_demo_session', 'true');
+    }
+    setUser(DEMO_USER);
+    setProfile(DEMO_PROFILE);
+    setIsLoading(false);
+  };
+
   const signOut = async () => {
-    await supabase.auth.signOut();
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('deltafix_demo_session');
+    }
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('Error signing out:', err);
+    }
     setUser(null);
     setProfile(null);
   };
@@ -103,7 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, isLoading, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, profile, isLoading, signOut, refreshProfile, loginAsDemo }}>
       {children}
     </AuthContext.Provider>
   );
