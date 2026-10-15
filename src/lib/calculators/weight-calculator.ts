@@ -35,9 +35,11 @@ export function calculateFastenerWeight(params: {
   dimension: StandardDimension;
   comprimento?: number; // L in mm
   material: BaseMaterial;
+  sobremetalCorte?: number; // Sobremetal paramétrico em mm
 }): WeightCalculationResult {
   const { family, standardCode, dimension, material } = params;
   const L = params.comprimento || 50;
+  const allowance = typeof params.sobremetalCorte === 'number' ? params.sobremetalCorte : 5.0;
   const rho = getMaterialDensityKgMm3(material);
   const d = dimension.diametro_nominal;
   const P = dimension.passo || 1.0;
@@ -66,8 +68,8 @@ export function calculateFastenerWeight(params: {
       const shankVol = threadArea * L;
       volLiquidoMm3 = headVol + shankVol;
 
-      // Raw material: Hex bar cut length = L + k + 5mm (kerf + facing)
-      const rawCutLength = L + k + 5.0;
+      // Raw material: Hex bar cut length = L + k + allowance (kerf + facing)
+      const rawCutLength = L + k + allowance;
       volBrutoMm3 = hexArea * rawCutLength;
     } else if (standardCode === 'DIN 931') {
       // Hex partial thread
@@ -78,14 +80,13 @@ export function calculateFastenerWeight(params: {
       const threadVol = threadArea * b;
       volLiquidoMm3 = headVol + smoothVol + threadVol;
 
-      const rawCutLength = L + k + 5.0;
+      const rawCutLength = L + k + allowance;
       volBrutoMm3 = hexArea * rawCutLength;
-    } else if (standardCode === 'DIN 912') {
-      // Socket head cap screw (Allen)
+    } else if (standardCode === 'DIN 912' || standardCode.includes('7991')) {
+      // Socket head cap screw (Allen) or countersunk
       const dk = dimension.diametro_cabeca || d * 1.5;
       b = calculateDIN912ThreadLength(d, L);
       const headCylinderVol = (Math.PI / 4) * Math.pow(dk, 2) * k;
-      // Hex socket recess depth approx 0.5 * k
       const socketDepth = 0.55 * k;
       const socketHexArea = 0.8660254 * Math.pow(s, 2);
       const socketVol = socketHexArea * socketDepth;
@@ -98,11 +99,25 @@ export function calculateFastenerWeight(params: {
 
       // Raw round bar of diameter dk
       const rawRoundArea = (Math.PI / 4) * Math.pow(dk + 1.0, 2);
-      const rawCutLength = L + k + 5.0;
+      const rawCutLength = L + k + allowance;
       volBrutoMm3 = rawRoundArea * rawCutLength;
+    } else {
+      // General bolt / ASTM A325 Heavy Hex
+      b = L;
+      const headVol = hexArea * k * 0.96;
+      const shankVol = threadArea * L;
+      volLiquidoMm3 = headVol + shankVol;
+      const rawCutLength = L + k + allowance;
+      volBrutoMm3 = hexArea * rawCutLength;
     }
+  } else if (family === 'prisioneiro' || (family as string) === 'barra_roscada') {
+    // Stud bolt / Threaded rod
+    b = L;
+    volLiquidoMm3 = threadArea * L;
+    const rawCutLength = L + allowance;
+    volBrutoMm3 = shankArea * rawCutLength;
   } else if (family === 'porca') {
-    // DIN 934 Nut
+    // Nuts (DIN 934, ASTM A563, DIN 985, etc.)
     const s = dimension.chave || d * 1.5;
     const m = dimension.altura_cabeca || d * 0.8;
     b = 0;
@@ -114,10 +129,11 @@ export function calculateFastenerWeight(params: {
     const boreVol = (Math.PI / 4) * Math.pow(boreEffD, 2) * m;
     volLiquidoMm3 = Math.max(hexVol - boreVol, 10);
 
-    // Raw hex bar cut per piece = m + 2.5mm parting blade
-    volBrutoMm3 = hexArea * (m + 2.5);
+    // Raw hex bar cut per piece = m + parting allowance
+    const partAllowance = Math.min(allowance * 0.5, 3.0);
+    volBrutoMm3 = hexArea * (m + partAllowance);
   } else if (family === 'arruela') {
-    // Washers DIN 125A / DIN 127B
+    // Washers DIN 125A / DIN 127B / ASTM F436
     const d1 = dimension.diametro_interno || d + 0.4;
     const d2 = dimension.diametro_externo || d * 2;
     const s = dimension.espessura || 2.0;

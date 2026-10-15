@@ -14,7 +14,8 @@ import {
   RotateCcw,
   Sparkles,
   Layers,
-  Crosshair
+  Crosshair,
+  Scissors
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -43,6 +44,28 @@ export function TechnicalDrawingSheet({
   const d2 = dimension.diametro_externo || d * 2.0;
   const thickness = dimension.espessura || 3.0;
 
+  // Sobremetal de corte paramétrico (mínimo 0mm, padrão 5mm)
+  const sobremetal = typeof product.sobremetal_corte === 'number' ? product.sobremetal_corte : 5.0;
+
+  // Geometric Archetype Classification
+  const archetype = product.geometric_archetype || (
+    product.standard_code === 'DIN 912' ? 'socket_head_allen' :
+    product.standard_code === 'DIN 7991' ? 'countersunk_allen' :
+    product.standard_code === 'DIN 934' || product.family === 'porca' ? 'hex_nut' :
+    product.family === 'arruela' ? (product.standard_code === 'DIN 127B' ? 'washer_spring' : 'washer_plain') :
+    product.family === 'prisioneiro' || product.standard_code.includes('B7') || product.standard_code.includes('975') ? 'stud_bolt' :
+    product.standard_code.includes('A325') ? 'heavy_hex_bolt' :
+    'hex_bolt'
+  );
+
+  const isNut = archetype === 'hex_nut';
+  const isWasher = archetype === 'washer_plain' || archetype === 'washer_spring';
+  const isStud = archetype === 'stud_bolt';
+  const isCountersunk = archetype === 'countersunk_allen';
+  const isAllen = archetype === 'socket_head_allen';
+  const isHeavyHex = archetype === 'heavy_hex_bolt';
+  const isBolt = !isNut && !isWasher && !isStud;
+
   // A3 Sheet Standard Dimensions (420 x 297 mm at 96 DPI -> 1587 x 1122 px)
   const sheetWidth = 1587;
   const sheetHeight = 1122;
@@ -63,7 +86,6 @@ export function TechnicalDrawingSheet({
     const { clientWidth, clientHeight } = viewportRef.current;
     if (!clientWidth || !clientHeight) return;
 
-    // Generous available space with 24px padding
     const availW = clientWidth - 24;
     const availH = clientHeight - 24;
 
@@ -72,7 +94,6 @@ export function TechnicalDrawingSheet({
     const fitScale = Math.min(scaleW, scaleH);
 
     setScale(Math.max(fitScale, 0.35));
-    // Center sheet in viewport
     const offsetX = (clientWidth - sheetWidth * fitScale) / 2;
     const offsetY = (clientHeight - sheetHeight * fitScale) / 2;
     setPan({ x: offsetX > 0 ? offsetX : 12, y: offsetY > 0 ? offsetY : 12 });
@@ -85,7 +106,6 @@ export function TechnicalDrawingSheet({
     const targetScale = 1.15;
     setScale(targetScale);
 
-    // Center of part drawing on sheet is around (X: 540, Y: 460)
     const partCenterX = 540;
     const partCenterY = 460;
 
@@ -99,6 +119,33 @@ export function TechnicalDrawingSheet({
     window.addEventListener('resize', fitToScreen);
     return () => window.removeEventListener('resize', fitToScreen);
   }, [fitToScreen]);
+
+  // Non-passive wheel zoom event listener to avoid browser warnings
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const cursorX = e.clientX - rect.left;
+      const cursorY = e.clientY - rect.top;
+
+      const zoomFactor = e.deltaY < 0 ? 1.12 : 0.88;
+      setScale((prevScale) => {
+        const newScale = Math.min(Math.max(prevScale * zoomFactor, 0.3), 3.5);
+        setPan((prevPan) => {
+          const newPanX = cursorX - (cursorX - prevPan.x) * (newScale / prevScale);
+          const newPanY = cursorY - (cursorY - prevPan.y) * (newScale / prevScale);
+          return { x: newPanX, y: newPanY };
+        });
+        return newScale;
+      });
+    };
+
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
 
   // Pointer-capture based pan handlers (silky smooth, never drops)
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -125,37 +172,10 @@ export function TechnicalDrawingSheet({
     }
   };
 
-  // Wheel Zoom (centered on cursor)
-  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    if (!viewportRef.current) return;
-    const rect = viewportRef.current.getBoundingClientRect();
-    const cursorX = e.clientX - rect.left;
-    const cursorY = e.clientY - rect.top;
-
-    const zoomFactor = e.deltaY < 0 ? 1.12 : 0.88;
-    const newScale = Math.min(Math.max(scale * zoomFactor, 0.3), 3.5);
-
-    // Keep cursor focal point stationary
-    const newPanX = cursorX - (cursorX - pan.x) * (newScale / scale);
-    const newPanY = cursorY - (cursorY - pan.y) * (newScale / scale);
-
-    setScale(newScale);
-    setPan({ x: newPanX, y: newPanY });
-  };
-
   // ==============================================================
   // DYNAMIC MECHANICAL DRAFTING SCALE & CENTERING LOGIC
   // ==============================================================
-  // Drafting region: X: 115 to 1040 (W: 925 px), Y: 60 to 860 (H: 800 px)
-  // Available width for views: ~750 px, available height: ~360 px
-  const isNut = product.family === 'porca';
-  const isWasher = product.family === 'arruela';
-  const isBolt = !isNut && !isWasher;
-  const isAllen = product.standard_code === 'DIN 912';
-
-  // Total part dimensions in mm
-  const partLengthMm = isNut ? k : isWasher ? thickness : (k + L);
+  const partLengthMm = isNut ? k : isWasher ? thickness : isStud ? L : (k + L);
   const partHeightMm = isWasher ? d2 : Math.max(s, dk, d);
   const frontViewWidthMm = isWasher ? d2 : e;
 
@@ -163,7 +183,7 @@ export function TechnicalDrawingSheet({
   let draftingScale = 2.0;
   let draftingScaleLabel = '1:1';
 
-  if (isBolt) {
+  if (isBolt || isStud) {
     const targetW = 720;
     const targetH = 340;
     const scaleFromW = targetW / (partLengthMm + frontViewWidthMm + 45);
@@ -195,31 +215,34 @@ export function TechnicalDrawingSheet({
   const scD1 = d1 * draftingScale;
   const scD2 = d2 * draftingScale;
   const scThick = thickness * draftingScale;
+  const scCut = sobremetal * draftingScale; // Sobremetal em pixels
 
   // Coordinated View Centers (Drafting Centerline at Y = 460)
   const centerlineY = 460;
   const draftingCenterX = 540;
 
-  // View gap in pixels
   const viewGap = Math.max(160, 45 * draftingScale);
 
-  // Total visual width of both orthogonal views
   const totalVisualWidth = isBolt
-    ? scK + scL + viewGap + scE / 2
+    ? scK + scL + scCut + viewGap + scE / 2
+    : isStud
+    ? scL + scCut + viewGap + scD / 2
     : isNut
     ? scK + viewGap + scE / 2
     : scThick + viewGap + scD2 / 2;
 
-  // Origin point of bolt contact face / nut face / washer face
   const boltOriginX = isBolt
     ? Math.max(draftingCenterX - totalVisualWidth / 2 + scK, 140 + scK)
+    : isStud
+    ? Math.max(draftingCenterX - totalVisualWidth / 2, 180)
     : isNut
     ? Math.max(draftingCenterX - totalVisualWidth / 2, 220)
     : Math.max(draftingCenterX - totalVisualWidth / 2, 220);
 
-  // Front View center X
   const frontViewX = isBolt
-    ? boltOriginX + scL + viewGap
+    ? boltOriginX + scL + scCut + viewGap
+    : isStud
+    ? boltOriginX + scL + scCut + viewGap
     : isNut
     ? boltOriginX + scK + viewGap
     : boltOriginX + scThick + viewGap;
@@ -280,13 +303,12 @@ export function TechnicalDrawingSheet({
           </span>
           <span className="text-[11px] text-slate-400 hidden lg:inline">
             Norma {product.standard_code} • {product.bitola}
-            {product.comprimento ? `x${product.comprimento}` : ''} • Escala {draftingScaleLabel}
+            {product.comprimento ? `x${product.comprimento}` : ''} • Escala {draftingScaleLabel} • Sobremetal: +{sobremetal}mm
           </span>
         </div>
 
         {/* Viewport Control Tools (Pan, Zoom, Focus, Fullscreen, PDF) */}
         <div className="flex items-center gap-2">
-          {/* Fit to screen button */}
           <button
             type="button"
             onClick={fitToScreen}
@@ -297,7 +319,6 @@ export function TechnicalDrawingSheet({
             <span className="text-[11px]">Enquadrar Folha</span>
           </button>
 
-          {/* Focus on Part Drawing button */}
           <button
             type="button"
             onClick={focusOnPart}
@@ -308,7 +329,6 @@ export function TechnicalDrawingSheet({
             <span className="text-[11px]">Foco na Peça</span>
           </button>
 
-          {/* Zoom In / Out controls */}
           <div className="flex items-center gap-1 bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5">
             <button
               type="button"
@@ -331,7 +351,6 @@ export function TechnicalDrawingSheet({
             </button>
           </div>
 
-          {/* Fullscreen toggle */}
           <button
             type="button"
             onClick={() => setIsFullscreen(!isFullscreen)}
@@ -341,7 +360,6 @@ export function TechnicalDrawingSheet({
             {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
           </button>
 
-          {/* PDF Export button */}
           <button
             type="button"
             disabled={isExporting}
@@ -361,7 +379,6 @@ export function TechnicalDrawingSheet({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        onWheel={handleWheel}
         className={`relative w-full bg-[#141820] overflow-hidden select-none cursor-grab active:cursor-grabbing ${
           isFullscreen ? 'h-[calc(100vh-42px)]' : 'h-[680px] xl:h-[760px] 2xl:h-[820px]'
         }`}
@@ -412,7 +429,20 @@ export function TechnicalDrawingSheet({
                   <path d="M 0 4 L 14 7 L 0 10 Z" fill="#000000" />
                 </marker>
 
-                {/* Hand-Drawn Cross Hatching Patterns for Cylindrical Shading & Sections */}
+                {/* Red Arrowhead for Cutting Allowance (Sobremetal) */}
+                <marker
+                  id="sharpArrowRed"
+                  viewBox="0 0 14 14"
+                  refX="14"
+                  refY="7"
+                  markerWidth="8"
+                  markerHeight="8"
+                  orient="auto-start-reverse"
+                >
+                  <path d="M 0 4 L 14 7 L 0 10 Z" fill="#b91c1c" />
+                </marker>
+
+                {/* Hand-Drawn Cross Hatching Patterns */}
                 <pattern
                   id="hatch45"
                   width="8"
@@ -433,7 +463,6 @@ export function TechnicalDrawingSheet({
                   <line x1="0" y1="0" x2="0" y2="5" stroke="#000000" strokeWidth="0.5" />
                 </pattern>
 
-                {/* Knurling Hatch for DIN 912 Allen Cylindrical Head */}
                 <pattern
                   id="crossKnurl"
                   width="6"
@@ -444,7 +473,7 @@ export function TechnicalDrawingSheet({
                   <line x1="6" y1="0" x2="0" y2="6" stroke="#000000" strokeWidth="0.6" />
                 </pattern>
 
-                {/* Strict Text Clipping Masks to prevent ANY text overflow out of bounding boxes */}
+                {/* Strict Text Clipping Masks */}
                 <clipPath id="carimboTitleClip">
                   <rect x="0" y="0" width="375" height="55" />
                 </clipPath>
@@ -464,13 +493,8 @@ export function TechnicalDrawingSheet({
 
               {/* ============================================================== */}
               {/* ZONE 1: ABNT MARGINS & DOUBLE BORDER WITH CENTERING ARROWS     */}
-              {/* Sheet: 1587 x 1122. Left Margin 25mm (95px), Top/Right/Btm 10mm*/}
-              {/* Inner working frame: X: 95, Y: 38, W: 1454, H: 1046           */}
               {/* ============================================================== */}
-              {/* White Paper Canvas */}
               <rect x="0" y="0" width={sheetWidth} height={sheetHeight} fill="#ffffff" />
-
-              {/* External Trim Border */}
               <rect
                 x="20"
                 y="20"
@@ -480,8 +504,6 @@ export function TechnicalDrawingSheet({
                 stroke="#000000"
                 strokeWidth="0.8"
               />
-
-              {/* Main Inner Working Frame (ABNT Standard Margins) */}
               <rect
                 x="95"
                 y="38"
@@ -492,13 +514,13 @@ export function TechnicalDrawingSheet({
                 strokeWidth="2.8"
               />
 
-              {/* Centering Marks (Setas de Centralização ABNT nas 4 extremidades) */}
+              {/* Centering Marks */}
               <line x1={sheetWidth / 2} y1="20" x2={sheetWidth / 2} y2="48" stroke="#000000" strokeWidth="1.6" />
               <line x1={sheetWidth / 2} y1={sheetHeight - 48} x2={sheetWidth / 2} y2={sheetHeight - 20} stroke="#000000" strokeWidth="1.6" />
               <line x1="20" y1={sheetHeight / 2} x2="105" y2={sheetHeight / 2} stroke="#000000" strokeWidth="1.6" />
               <line x1={sheetWidth - 48} y1={sheetHeight / 2} x2={sheetWidth - 20} y2={sheetHeight / 2} stroke="#000000" strokeWidth="1.6" />
 
-              {/* Coordinates Grid Labels */}
+              {/* Coordinates Grid */}
               <g className="font-iso" fontSize="11" fontWeight="700" fill="#000000">
                 <text x="350" y="32">1</text>
                 <text x="650" y="32">2</text>
@@ -512,7 +534,7 @@ export function TechnicalDrawingSheet({
               {/* ============================================================== */}
               {/* ZONE 2: DYNAMIC CENTRAL MECHANICAL DRAWING                     */}
               {/* ============================================================== */}
-              {/* Centerline (Traço e Ponto ISO 128: 18, 4, 3, 4) */}
+              {/* Centerlines */}
               <line
                 x1={boltOriginX - (isBolt ? scK + 60 : 60)}
                 y1={centerlineY}
@@ -522,8 +544,6 @@ export function TechnicalDrawingSheet({
                 strokeWidth="0.8"
                 strokeDasharray="18, 4, 3, 4"
               />
-
-              {/* Front View Vertical Centerline */}
               <line
                 x1={frontViewX}
                 y1={centerlineY - (isWasher ? scD2 / 2 + 40 : scE / 2 + 40)}
@@ -535,7 +555,7 @@ export function TechnicalDrawingSheet({
               />
 
               {/* -------------------------------------------------------------- */}
-              {/* PARAFUSOS: DIN 933, DIN 931, DIN 912                           */}
+              {/* PARAFUSOS: DIN 933, DIN 931, DIN 912, DIN 7991, ASTM A325       */}
               {/* -------------------------------------------------------------- */}
               {isBolt && (
                 <g>
@@ -552,7 +572,6 @@ export function TechnicalDrawingSheet({
                         stroke="#000000"
                         strokeWidth="2.6"
                       />
-                      {/* Knurled finish texture */}
                       <rect
                         x={boltOriginX - scK + 1}
                         y={centerlineY - scDk / 2 + 1}
@@ -561,7 +580,6 @@ export function TechnicalDrawingSheet({
                         fill="url(#crossKnurl)"
                         opacity="0.25"
                       />
-                      {/* Internal Hex Socket dashed hidden lines */}
                       <rect
                         x={boltOriginX - scK}
                         y={centerlineY - scS / 2}
@@ -573,8 +591,34 @@ export function TechnicalDrawingSheet({
                         strokeDasharray="5,3"
                       />
                     </g>
+                  ) : isCountersunk ? (
+                    // DIN 7991 Countersunk 90° Head
+                    <g>
+                      <polygon
+                        points={`
+                          ${boltOriginX - scK},${centerlineY - scDk / 2}
+                          ${boltOriginX},${centerlineY - scD / 2}
+                          ${boltOriginX},${centerlineY + scD / 2}
+                          ${boltOriginX - scK},${centerlineY + scDk / 2}
+                        `}
+                        fill="#ffffff"
+                        stroke="#000000"
+                        strokeWidth="2.6"
+                      />
+                      {/* Hex socket dashed recess */}
+                      <rect
+                        x={boltOriginX - scK}
+                        y={centerlineY - scS / 2}
+                        width={scK * 0.6}
+                        height={scS}
+                        fill="none"
+                        stroke="#000000"
+                        strokeWidth="1.0"
+                        strokeDasharray="4,2"
+                      />
+                    </g>
                   ) : (
-                    // DIN 933 / DIN 931 Hexagonal Head
+                    // Standard Hex (DIN 933/931) or Heavy Hex (ASTM A325)
                     <g>
                       <rect
                         x={boltOriginX - scK}
@@ -583,9 +627,8 @@ export function TechnicalDrawingSheet({
                         height={scS}
                         fill="#ffffff"
                         stroke="#000000"
-                        strokeWidth="2.6"
+                        strokeWidth={isHeavyHex ? "3.2" : "2.6"}
                       />
-                      {/* Cross-hatching for cylindrical shadow */}
                       <rect
                         x={boltOriginX - scK + 1}
                         y={centerlineY + scS / 6}
@@ -594,7 +637,6 @@ export function TechnicalDrawingSheet({
                         fill="url(#hatch45)"
                         opacity="0.85"
                       />
-                      {/* Chamfer curves */}
                       <path
                         d={`M ${boltOriginX - scK} ${centerlineY - scS / 4} Q ${boltOriginX - scK + scK * 0.45} ${centerlineY} ${boltOriginX - scK} ${centerlineY + scS / 4}`}
                         fill="none"
@@ -623,14 +665,14 @@ export function TechnicalDrawingSheet({
                   {/* Underhead contact face */}
                   <line
                     x1={boltOriginX}
-                    y1={centerlineY - (isAllen ? scDk : scS) / 2}
+                    y1={centerlineY - (isAllen || isCountersunk ? scDk : scS) / 2}
                     x2={boltOriginX}
-                    y2={centerlineY + (isAllen ? scDk : scS) / 2}
+                    y2={centerlineY + (isAllen || isCountersunk ? scDk : scS) / 2}
                     stroke="#000000"
                     strokeWidth="2.6"
                   />
 
-                  {/* SHANK (CORPO LISO - SE DIN 931) */}
+                  {/* SHANK (CORPO LISO) */}
                   {scL - scB > 0 && (
                     <g>
                       <rect
@@ -642,7 +684,6 @@ export function TechnicalDrawingSheet({
                         stroke="#000000"
                         strokeWidth="2.6"
                       />
-                      {/* Subtle hatching at bottom curvature */}
                       <rect
                         x={boltOriginX}
                         y={centerlineY + scD / 5}
@@ -651,7 +692,6 @@ export function TechnicalDrawingSheet({
                         fill="url(#fineHatch)"
                         opacity="0.75"
                       />
-                      {/* Transition step mark to thread */}
                       <line
                         x1={boltOriginX + (scL - scB)}
                         y1={centerlineY - scD / 2}
@@ -695,7 +735,7 @@ export function TechnicalDrawingSheet({
                       strokeDasharray="7,2"
                     />
 
-                    {/* Parametric Real Thread Crest Lines (Hélice inclinada) */}
+                    {/* Thread Crest Lines */}
                     {(() => {
                       const threadPitchPx = Math.max(P * draftingScale, 9);
                       const count = Math.floor(scB / threadPitchPx);
@@ -714,25 +754,10 @@ export function TechnicalDrawingSheet({
                             strokeWidth="1.2"
                           />
                         );
-                        if (i % 2 === 0) {
-                          lines.push(
-                            <line
-                              key={`sub-${i}`}
-                              x1={xTop + 2.5}
-                              y1={centerlineY + scD * 0.25}
-                              x2={xBottom + 2.5}
-                              y2={centerlineY + scD / 2}
-                              stroke="#000000"
-                              strokeWidth="0.6"
-                              opacity="0.8"
-                            />
-                          );
-                        }
                       }
                       return lines;
                     })()}
 
-                    {/* Bottom Shadow Hatching */}
                     <rect
                       x={boltOriginX + (scL - scB)}
                       y={centerlineY + scD * 0.2}
@@ -743,7 +768,7 @@ export function TechnicalDrawingSheet({
                     />
                   </g>
 
-                  {/* Tip Chamfer at 45 degrees */}
+                  {/* Finished Tip Chamfer */}
                   <polygon
                     points={`
                       ${boltOriginX + scL},${centerlineY - scD / 2}
@@ -755,20 +780,52 @@ export function TechnicalDrawingSheet({
                     stroke="#000000"
                     strokeWidth="2.6"
                   />
-                  <polygon
-                    points={`
-                      ${boltOriginX + scL},${centerlineY - scD / 2}
-                      ${boltOriginX + scL + Math.min(scD * 0.15, 14)},${centerlineY - scD * 0.35}
-                      ${boltOriginX + scL + Math.min(scD * 0.15, 14)},${centerlineY + scD * 0.35}
-                      ${boltOriginX + scL},${centerlineY + scD / 2}
-                    `}
-                    fill="url(#fineHatch)"
-                  />
+
+                  {/* -------------------------------------------------------------- */}
+                  {/* SOBREMETAL DE CORTE PARAMÉTRICO (RAW BAR CUTTING ENVELOPE)    */}
+                  {/* -------------------------------------------------------------- */}
+                  {sobremetal > 0 && (
+                    <g id="sobremetal-corte-envelope">
+                      {/* Raw saw cut envelope extension */}
+                      <rect
+                        x={boltOriginX + scL}
+                        y={centerlineY - scD / 2}
+                        width={scCut}
+                        height={scD}
+                        fill="#fee2e2"
+                        stroke="#b91c1c"
+                        strokeWidth="1.4"
+                        strokeDasharray="4,2"
+                        opacity="0.85"
+                      />
+                      {/* Saw cutting line */}
+                      <line
+                        x1={boltOriginX + scL + scCut}
+                        y1={centerlineY - scD / 2 - 12}
+                        x2={boltOriginX + scL + scCut}
+                        y2={centerlineY + scD / 2 + 12}
+                        stroke="#b91c1c"
+                        strokeWidth="1.8"
+                        strokeDasharray="6,2"
+                      />
+                      {/* Scissors / Cut mark icon indication */}
+                      <text
+                        x={boltOriginX + scL + scCut / 2}
+                        y={centerlineY - scD / 2 - 8}
+                        textAnchor="middle"
+                        fill="#b91c1c"
+                        fontSize="11"
+                        fontWeight="800"
+                        className="font-iso"
+                      >
+                        +{sobremetal} mm
+                      </text>
+                    </g>
+                  )}
 
                   {/* FRONT VIEW (VISTA FRONTAL) */}
                   <g transform={`translate(${frontViewX}, ${centerlineY})`}>
-                    {isAllen ? (
-                      // DIN 912 Front View: Outer Circle + Hex Socket
+                    {isAllen || isCountersunk ? (
                       <g>
                         <circle cx="0" cy="0" r={scDk / 2} fill="#ffffff" stroke="#000000" strokeWidth="2.8" />
                         <circle cx="0" cy="0" r={scD / 2} fill="none" stroke="#000000" strokeWidth="1.0" strokeDasharray="4,2" />
@@ -782,10 +839,8 @@ export function TechnicalDrawingSheet({
                           stroke="#000000"
                           strokeWidth="2.2"
                         />
-                        <circle cx="0" cy="0" r={scS / 2} fill="none" stroke="#000000" strokeWidth="0.8" opacity="0.6" />
                       </g>
                     ) : (
-                      // DIN 933/931 Front View: Hexagon + Core Circles
                       <g>
                         <polygon
                           points={Array.from({ length: 6 }).map((_, i) => {
@@ -810,15 +865,15 @@ export function TechnicalDrawingSheet({
                   </g>
 
                   {/* ============================================================== */}
-                  {/* COTAS TÉCNICAS (DIMENSION LINES - RIGOROSAS & NÃO-COLIDENTES) */}
+                  {/* COTAS TÉCNICAS (DIMENSION LINES)                               */}
                   {/* ============================================================== */}
-                  {/* Cota L (Comprimento Total do Corpo) */}
+                  {/* Cota L (Nominal Acabado) */}
                   <g className="cursor-pointer" onClick={() => handleCotaSelect('L')}>
                     <line
                       x1={boltOriginX}
-                      y1={centerlineY + Math.max(scS, scDk, scD) / 2 + 50}
+                      y1={centerlineY + Math.max(scS, scDk, scD) / 2 + 48}
                       x2={boltOriginX + scL}
-                      y2={centerlineY + Math.max(scS, scDk, scD) / 2 + 50}
+                      y2={centerlineY + Math.max(scS, scDk, scD) / 2 + 48}
                       stroke="#000000"
                       strokeWidth="0.9"
                       markerStart="url(#sharpArrow)"
@@ -828,7 +883,7 @@ export function TechnicalDrawingSheet({
                       x1={boltOriginX}
                       y1={centerlineY + scD / 2 + 4}
                       x2={boltOriginX}
-                      y2={centerlineY + Math.max(scS, scDk, scD) / 2 + 65}
+                      y2={centerlineY + Math.max(scS, scDk, scD) / 2 + 60}
                       stroke="#000000"
                       strokeWidth="0.6"
                     />
@@ -836,13 +891,13 @@ export function TechnicalDrawingSheet({
                       x1={boltOriginX + scL}
                       y1={centerlineY + scD / 2 + 4}
                       x2={boltOriginX + scL}
-                      y2={centerlineY + Math.max(scS, scDk, scD) / 2 + 65}
+                      y2={centerlineY + Math.max(scS, scDk, scD) / 2 + 60}
                       stroke="#000000"
                       strokeWidth="0.6"
                     />
                     <text
                       x={boltOriginX + scL / 2}
-                      y={centerlineY + Math.max(scS, scDk, scD) / 2 + 42}
+                      y={centerlineY + Math.max(scS, scDk, scD) / 2 + 40}
                       textAnchor="middle"
                       fill="#000000"
                       fontSize="17"
@@ -853,13 +908,57 @@ export function TechnicalDrawingSheet({
                     </text>
                   </g>
 
+                  {/* COTA DE PROCESSO MES: COMPRIMENTO DE CORTE COM SOBREMETAL */}
+                  {sobremetal > 0 && (
+                    <g className="cursor-pointer" onClick={() => handleCotaSelect('L_corte')}>
+                      <line
+                        x1={boltOriginX}
+                        y1={centerlineY + Math.max(scS, scDk, scD) / 2 + 82}
+                        x2={boltOriginX + scL + scCut}
+                        y2={centerlineY + Math.max(scS, scDk, scD) / 2 + 82}
+                        stroke="#b91c1c"
+                        strokeWidth="1.0"
+                        markerStart="url(#sharpArrowRed)"
+                        markerEnd="url(#sharpArrowRed)"
+                      />
+                      <line
+                        x1={boltOriginX}
+                        y1={centerlineY + Math.max(scS, scDk, scD) / 2 + 55}
+                        x2={boltOriginX}
+                        y2={centerlineY + Math.max(scS, scDk, scD) / 2 + 94}
+                        stroke="#b91c1c"
+                        strokeWidth="0.6"
+                      />
+                      <line
+                        x1={boltOriginX + scL + scCut}
+                        y1={centerlineY + scD / 2}
+                        x2={boltOriginX + scL + scCut}
+                        y2={centerlineY + Math.max(scS, scDk, scD) / 2 + 94}
+                        stroke="#b91c1c"
+                        strokeWidth="0.6"
+                        strokeDasharray="4,2"
+                      />
+                      <text
+                        x={boltOriginX + (scL + scCut) / 2}
+                        y={centerlineY + Math.max(scS, scDk, scD) / 2 + 75}
+                        textAnchor="middle"
+                        fill="#b91c1c"
+                        fontSize="14"
+                        fontWeight="700"
+                        className="font-engineer"
+                      >
+                        L corte = {L + sobremetal} mm (Sobremetal +{sobremetal}mm)
+                      </text>
+                    </g>
+                  )}
+
                   {/* Cota k (Altura da Cabeça) */}
                   <g className="cursor-pointer" onClick={() => handleCotaSelect('k')}>
                     <line
                       x1={boltOriginX - scK}
-                      y1={centerlineY - (isAllen ? scDk : scS) / 2 - 40}
+                      y1={centerlineY - (isAllen || isCountersunk ? scDk : scS) / 2 - 40}
                       x2={boltOriginX}
-                      y2={centerlineY - (isAllen ? scDk : scS) / 2 - 40}
+                      y2={centerlineY - (isAllen || isCountersunk ? scDk : scS) / 2 - 40}
                       stroke="#000000"
                       strokeWidth="0.9"
                       markerStart="url(#sharpArrow)"
@@ -867,23 +966,23 @@ export function TechnicalDrawingSheet({
                     />
                     <line
                       x1={boltOriginX - scK}
-                      y1={centerlineY - (isAllen ? scDk : scS) / 2}
+                      y1={centerlineY - (isAllen || isCountersunk ? scDk : scS) / 2}
                       x2={boltOriginX - scK}
-                      y2={centerlineY - (isAllen ? scDk : scS) / 2 - 50}
+                      y2={centerlineY - (isAllen || isCountersunk ? scDk : scS) / 2 - 50}
                       stroke="#000000"
                       strokeWidth="0.6"
                     />
                     <line
                       x1={boltOriginX}
-                      y1={centerlineY - (isAllen ? scDk : scS) / 2}
+                      y1={centerlineY - (isAllen || isCountersunk ? scDk : scS) / 2}
                       x2={boltOriginX}
-                      y2={centerlineY - (isAllen ? scDk : scS) / 2 - 50}
+                      y2={centerlineY - (isAllen || isCountersunk ? scDk : scS) / 2 - 50}
                       stroke="#000000"
                       strokeWidth="0.6"
                     />
                     <text
                       x={boltOriginX - scK / 2}
-                      y={centerlineY - (isAllen ? scDk : scS) / 2 - 46}
+                      y={centerlineY - (isAllen || isCountersunk ? scDk : scS) / 2 - 46}
                       textAnchor="middle"
                       fill="#000000"
                       fontSize="16"
@@ -894,8 +993,8 @@ export function TechnicalDrawingSheet({
                     </text>
                   </g>
 
-                  {/* Cota b (Comprimento Útil de Rosca se DIN 931) */}
-                  {product.standard_code === 'DIN 931' && (
+                  {/* Cota b (Comprimento Útil de Rosca se parcial) */}
+                  {scL - scB > 0 && (
                     <g className="cursor-pointer" onClick={() => handleCotaSelect('b')}>
                       <line
                         x1={boltOriginX + (scL - scB)}
@@ -937,13 +1036,13 @@ export function TechnicalDrawingSheet({
                     </g>
                   )}
 
-                  {/* Cota M (Linha de Chamada ISO 128 com Seta na Rosca - Nunca Colide!) */}
+                  {/* Cota M (Linha de Chamada ISO 128 com Seta na Rosca) */}
                   <g className="cursor-pointer" onClick={() => handleCotaSelect('d')}>
                     <path
                       d={`
                         M ${boltOriginX + scL - Math.min(scB * 0.2, 25)} ${centerlineY - scD / 2}
                         L ${boltOriginX + scL + 35} ${centerlineY - scD / 2 - 45}
-                        L ${boltOriginX + scL + 120} ${centerlineY - scD / 2 - 45}
+                        L ${boltOriginX + scL + 130} ${centerlineY - scD / 2 - 45}
                       `}
                       fill="none"
                       stroke="#000000"
@@ -959,17 +1058,17 @@ export function TechnicalDrawingSheet({
                       fontWeight="700"
                       className="font-engineer"
                     >
-                      M{d}x{P} - 6g
+                      {product.bitola.includes('"') ? product.bitola : `M${d}x${P}`} - 6g
                     </text>
                   </g>
 
-                  {/* Cota s (Abertura de Chave na Vista Frontal) */}
+                  {/* Cota s (Abertura de Chave) */}
                   <g className="cursor-pointer" onClick={() => handleCotaSelect('s')}>
                     <line
                       x1={frontViewX - scS / 2}
-                      y1={centerlineY + (isAllen ? scDk : scS) / 2 + 40}
+                      y1={centerlineY + (isAllen || isCountersunk ? scDk : scS) / 2 + 40}
                       x2={frontViewX + scS / 2}
-                      y2={centerlineY + (isAllen ? scDk : scS) / 2 + 40}
+                      y2={centerlineY + (isAllen || isCountersunk ? scDk : scS) / 2 + 40}
                       stroke="#000000"
                       strokeWidth="0.9"
                       markerStart="url(#sharpArrow)"
@@ -977,23 +1076,23 @@ export function TechnicalDrawingSheet({
                     />
                     <line
                       x1={frontViewX - scS / 2}
-                      y1={centerlineY + (isAllen ? scDk : scS) / 2}
+                      y1={centerlineY + (isAllen || isCountersunk ? scDk : scS) / 2}
                       x2={frontViewX - scS / 2}
-                      y2={centerlineY + (isAllen ? scDk : scS) / 2 + 52}
+                      y2={centerlineY + (isAllen || isCountersunk ? scDk : scS) / 2 + 52}
                       stroke="#000000"
                       strokeWidth="0.6"
                     />
                     <line
                       x1={frontViewX + scS / 2}
-                      y1={centerlineY + (isAllen ? scDk : scS) / 2}
+                      y1={centerlineY + (isAllen || isCountersunk ? scDk : scS) / 2}
                       x2={frontViewX + scS / 2}
-                      y2={centerlineY + (isAllen ? scDk : scS) / 2 + 52}
+                      y2={centerlineY + (isAllen || isCountersunk ? scDk : scS) / 2 + 52}
                       stroke="#000000"
                       strokeWidth="0.6"
                     />
                     <text
                       x={frontViewX}
-                      y={centerlineY + (isAllen ? scDk : scS) / 2 + 34}
+                      y={centerlineY + (isAllen || isCountersunk ? scDk : scS) / 2 + 34}
                       textAnchor="middle"
                       fill="#000000"
                       fontSize="16"
@@ -1003,100 +1102,152 @@ export function TechnicalDrawingSheet({
                       s = {s}
                     </text>
                   </g>
+                </g>
+              )}
 
-                  {/* Cota e ou dk */}
-                  {isAllen ? (
+              {/* -------------------------------------------------------------- */}
+              {/* PRISIONEIRO: ASTM A193 B7, DIN 975, DIN 938                   */}
+              {/* -------------------------------------------------------------- */}
+              {isStud && (
+                <g>
+                  {/* Full stud rod cylinder */}
+                  <rect
+                    x={boltOriginX}
+                    y={centerlineY - scD / 2}
+                    width={scL}
+                    height={scD}
+                    fill="#ffffff"
+                    stroke="#000000"
+                    strokeWidth="2.6"
+                  />
+                  {/* Thread representation */}
+                  <rect
+                    x={boltOriginX}
+                    y={centerlineY - scD / 2}
+                    width={scL}
+                    height={scD}
+                    fill="url(#fineHatch)"
+                    opacity="0.35"
+                  />
+                  {/* Core lines */}
+                  <line
+                    x1={boltOriginX}
+                    y1={centerlineY - (scD / 2) * 0.84}
+                    x2={boltOriginX + scL}
+                    y2={centerlineY - (scD / 2) * 0.84}
+                    stroke="#000000"
+                    strokeWidth="0.9"
+                    strokeDasharray="7,2"
+                  />
+                  <line
+                    x1={boltOriginX}
+                    y1={centerlineY + (scD / 2) * 0.84}
+                    x2={boltOriginX + scL}
+                    y2={centerlineY + (scD / 2) * 0.84}
+                    stroke="#000000"
+                    strokeWidth="0.9"
+                    strokeDasharray="7,2"
+                  />
+
+                  {/* Sobremetal de corte na extremidade */}
+                  {sobremetal > 0 && (
+                    <g>
+                      <rect
+                        x={boltOriginX + scL}
+                        y={centerlineY - scD / 2}
+                        width={scCut}
+                        height={scD}
+                        fill="#fee2e2"
+                        stroke="#b91c1c"
+                        strokeWidth="1.4"
+                        strokeDasharray="4,2"
+                      />
+                      <line
+                        x1={boltOriginX + scL + scCut}
+                        y1={centerlineY - scD / 2 - 10}
+                        x2={boltOriginX + scL + scCut}
+                        y2={centerlineY + scD / 2 + 10}
+                        stroke="#b91c1c"
+                        strokeWidth="1.8"
+                        strokeDasharray="6,2"
+                      />
+                    </g>
+                  )}
+
+                  {/* Stud Front View (Circle) */}
+                  <g transform={`translate(${frontViewX}, ${centerlineY})`}>
+                    <circle cx="0" cy="0" r={scD / 2} fill="#ffffff" stroke="#000000" strokeWidth="2.8" />
+                    <circle cx="0" cy="0" r={(scD / 2) * 0.84} fill="none" stroke="#000000" strokeWidth="1.0" strokeDasharray="4,2" />
+                  </g>
+
+                  {/* Cota L */}
+                  <line
+                    x1={boltOriginX}
+                    y1={centerlineY + scD / 2 + 45}
+                    x2={boltOriginX + scL}
+                    y2={centerlineY + scD / 2 + 45}
+                    stroke="#000000"
+                    strokeWidth="0.9"
+                    markerStart="url(#sharpArrow)"
+                    markerEnd="url(#sharpArrow)"
+                  />
+                  <text
+                    x={boltOriginX + scL / 2}
+                    y={centerlineY + scD / 2 + 38}
+                    textAnchor="middle"
+                    fill="#000000"
+                    fontSize="16"
+                    fontWeight="700"
+                    className="font-engineer"
+                  >
+                    L = {L} mm
+                  </text>
+
+                  {/* Cota Corte */}
+                  {sobremetal > 0 && (
                     <text
-                      x={frontViewX + scDk / 2 + 18}
-                      y={centerlineY - scDk / 4}
-                      fill="#000000"
-                      fontSize="13"
+                      x={boltOriginX + (scL + scCut) / 2}
+                      y={centerlineY + scD / 2 + 75}
+                      textAnchor="middle"
+                      fill="#b91c1c"
+                      fontSize="14"
                       fontWeight="700"
                       className="font-engineer"
                     >
-                      dk = {dk}
-                    </text>
-                  ) : (
-                    <text
-                      x={frontViewX + scE / 2 + 18}
-                      y={centerlineY - scE / 4}
-                      fill="#000000"
-                      fontSize="13"
-                      fontWeight="700"
-                      className="font-engineer"
-                    >
-                      e min = {e}
+                      L corte = {L + sobremetal} mm (+{sobremetal}mm sobremetal)
                     </text>
                   )}
                 </g>
               )}
 
               {/* -------------------------------------------------------------- */}
-              {/* PORCA: DIN 934 (VISTA CORTE LATERAL + VISTA FRONTAL)           */}
+              {/* PORCA: DIN 934, ASTM A563, DIN 985                             */}
               {/* -------------------------------------------------------------- */}
               {isNut && (
                 <g>
                   {/* Nut Sectioned Side View */}
-                  <g>
-                    {/* Upper Body Half (Hatched Section) */}
-                    <rect
-                      x={boltOriginX}
-                      y={centerlineY - scS / 2}
-                      width={scK}
-                      height={(scS - scD) / 2}
-                      fill="url(#hatch45)"
-                      stroke="#000000"
-                      strokeWidth="2.4"
-                    />
-                    {/* Lower Body Half (Hatched Section) */}
-                    <rect
-                      x={boltOriginX}
-                      y={centerlineY + scD / 2}
-                      width={scK}
-                      height={(scS - scD) / 2}
-                      fill="url(#hatch45)"
-                      stroke="#000000"
-                      strokeWidth="2.4"
-                    />
-                    {/* Thread Hole Bore Lines */}
-                    <line
-                      x1={boltOriginX}
-                      y1={centerlineY - scD / 2}
-                      x2={boltOriginX + scK}
-                      y2={centerlineY - scD / 2}
-                      stroke="#000000"
-                      strokeWidth="2.2"
-                    />
-                    <line
-                      x1={boltOriginX}
-                      y1={centerlineY + scD / 2}
-                      x2={boltOriginX + scK}
-                      y2={centerlineY + scD / 2}
-                      stroke="#000000"
-                      strokeWidth="2.2"
-                    />
-                    {/* Thread Root Lines */}
-                    <line
-                      x1={boltOriginX}
-                      y1={centerlineY - (scD / 2) * 1.08}
-                      x2={boltOriginX + scK}
-                      y2={centerlineY - (scD / 2) * 1.08}
-                      stroke="#000000"
-                      strokeWidth="0.8"
-                      strokeDasharray="6,2"
-                    />
-                    <line
-                      x1={boltOriginX}
-                      y1={centerlineY + (scD / 2) * 1.08}
-                      x2={boltOriginX + scK}
-                      y2={centerlineY + (scD / 2) * 1.08}
-                      stroke="#000000"
-                      strokeWidth="0.8"
-                      strokeDasharray="6,2"
-                    />
-                  </g>
+                  <rect
+                    x={boltOriginX}
+                    y={centerlineY - scS / 2}
+                    width={scK}
+                    height={(scS - scD) / 2}
+                    fill="url(#hatch45)"
+                    stroke="#000000"
+                    strokeWidth="2.4"
+                  />
+                  <rect
+                    x={boltOriginX}
+                    y={centerlineY + scD / 2}
+                    width={scK}
+                    height={(scS - scD) / 2}
+                    fill="url(#hatch45)"
+                    stroke="#000000"
+                    strokeWidth="2.4"
+                  />
+                  <line x1={boltOriginX} y1={centerlineY - scD / 2} x2={boltOriginX + scK} y2={centerlineY - scD / 2} stroke="#000000" strokeWidth="2.2" />
+                  <line x1={boltOriginX} y1={centerlineY + scD / 2} x2={boltOriginX + scK} y2={centerlineY + scD / 2} stroke="#000000" strokeWidth="2.2" />
 
-                  {/* Nut Front View */}
+                  {/* Front View */}
                   <g transform={`translate(${frontViewX}, ${centerlineY})`}>
                     <polygon
                       points={Array.from({ length: 6 }).map((_, i) => {
@@ -1109,7 +1260,6 @@ export function TechnicalDrawingSheet({
                       strokeWidth="2.8"
                     />
                     <circle cx="0" cy="0" r={scD / 2} fill="#ffffff" stroke="#000000" strokeWidth="1.6" />
-                    {/* 3/4 Thread Crest Arc (ISO Standard representation) */}
                     <path
                       d={`M 0,${-(scD / 2) * 1.08} A ${(scD / 2) * 1.08} ${(scD / 2) * 1.08} 0 1 1 ${-(scD / 2) * 1.08},0`}
                       fill="none"
@@ -1118,194 +1268,76 @@ export function TechnicalDrawingSheet({
                     />
                   </g>
 
-                  {/* Dimensions for Nut */}
                   {/* Height m */}
-                  <g className="cursor-pointer" onClick={() => handleCotaSelect('m')}>
-                    <line
-                      x1={boltOriginX}
-                      y1={centerlineY - scS / 2 - 35}
-                      x2={boltOriginX + scK}
-                      y2={centerlineY - scS / 2 - 35}
-                      stroke="#000000"
-                      strokeWidth="0.9"
-                      markerStart="url(#sharpArrow)"
-                      markerEnd="url(#sharpArrow)"
-                    />
-                    <line
-                      x1={boltOriginX}
-                      y1={centerlineY - scS / 2}
-                      x2={boltOriginX}
-                      y2={centerlineY - scS / 2 - 45}
-                      stroke="#000000"
-                      strokeWidth="0.6"
-                    />
-                    <line
-                      x1={boltOriginX + scK}
-                      y1={centerlineY - scS / 2}
-                      x2={boltOriginX + scK}
-                      y2={centerlineY - scS / 2 - 45}
-                      stroke="#000000"
-                      strokeWidth="0.6"
-                    />
-                    <text
-                      x={boltOriginX + scK / 2}
-                      y={centerlineY - scS / 2 - 42}
-                      textAnchor="middle"
-                      fill="#000000"
-                      fontSize="16"
-                      fontWeight="700"
-                      className="font-engineer"
-                    >
-                      m = {k}
-                    </text>
-                  </g>
-
-                  {/* Wrench Size s */}
-                  <g className="cursor-pointer" onClick={() => handleCotaSelect('s')}>
-                    <line
-                      x1={frontViewX - scS / 2}
-                      y1={centerlineY + scS / 2 + 40}
-                      x2={frontViewX + scS / 2}
-                      y2={centerlineY + scS / 2 + 40}
-                      stroke="#000000"
-                      strokeWidth="0.9"
-                      markerStart="url(#sharpArrow)"
-                      markerEnd="url(#sharpArrow)"
-                    />
-                    <line
-                      x1={frontViewX - scS / 2}
-                      y1={centerlineY + scS / 2}
-                      x2={frontViewX - scS / 2}
-                      y2={centerlineY + scS / 2 + 52}
-                      stroke="#000000"
-                      strokeWidth="0.6"
-                    />
-                    <line
-                      x1={frontViewX + scS / 2}
-                      y1={centerlineY + scS / 2}
-                      x2={frontViewX + scS / 2}
-                      y2={centerlineY + scS / 2 + 52}
-                      stroke="#000000"
-                      strokeWidth="0.6"
-                    />
-                    <text
-                      x={frontViewX}
-                      y={centerlineY + scS / 2 + 34}
-                      textAnchor="middle"
-                      fill="#000000"
-                      fontSize="16"
-                      fontWeight="700"
-                      className="font-engineer"
-                    >
-                      s = {s}
-                    </text>
-                  </g>
-
-                  {/* Leader Line for Internal Thread */}
-                  <path
-                    d={`
-                      M ${boltOriginX + scK * 0.5} ${centerlineY - scD / 2}
-                      L ${boltOriginX + scK + 50} ${centerlineY - scD / 2 - 40}
-                      L ${boltOriginX + scK + 130} ${centerlineY - scD / 2 - 40}
-                    `}
-                    fill="none"
-                    stroke="#000000"
-                    strokeWidth="1.0"
-                    markerStart="url(#sharpArrow)"
-                  />
                   <text
-                    x={boltOriginX + scK + 55}
-                    y={centerlineY - scD / 2 - 46}
-                    textAnchor="start"
-                    fill="#000000"
-                    fontSize="16"
-                    fontWeight="700"
-                    className="font-engineer"
-                  >
-                    Rosca M{d} - 6H
-                  </text>
-                </g>
-              )}
-
-              {/* -------------------------------------------------------------- */}
-              {/* ARRUELAS: DIN 125A / DIN 127B                                  */}
-              {/* -------------------------------------------------------------- */}
-              {isWasher && (
-                <g>
-                  {/* Washer Side View (Cross Section) */}
-                  <g>
-                    <rect
-                      x={boltOriginX}
-                      y={centerlineY - scD2 / 2}
-                      width={scThick}
-                      height={(scD2 - scD1) / 2}
-                      fill="url(#hatch45)"
-                      stroke="#000000"
-                      strokeWidth="2.4"
-                    />
-                    <rect
-                      x={boltOriginX}
-                      y={centerlineY + scD1 / 2}
-                      width={scThick}
-                      height={(scD2 - scD1) / 2}
-                      fill="url(#hatch45)"
-                      stroke="#000000"
-                      strokeWidth="2.4"
-                    />
-                  </g>
-
-                  {/* Washer Front View */}
-                  <g transform={`translate(${frontViewX}, ${centerlineY})`}>
-                    <circle cx="0" cy="0" r={scD2 / 2} fill="#ffffff" stroke="#000000" strokeWidth="2.8" />
-                    <circle cx="0" cy="0" r={scD1 / 2} fill="#ffffff" stroke="#000000" strokeWidth="2.2" />
-                    {product.standard_code === 'DIN 127B' && (
-                      <line x1="0" y1={-scD1 / 2} x2="0" y2={-scD2 / 2} stroke="#000000" strokeWidth="3" />
-                    )}
-                  </g>
-
-                  {/* Thickness s */}
-                  <g className="cursor-pointer" onClick={() => handleCotaSelect('s')}>
-                    <line
-                      x1={boltOriginX}
-                      y1={centerlineY - scD2 / 2 - 35}
-                      x2={boltOriginX + scThick}
-                      y2={centerlineY - scD2 / 2 - 35}
-                      stroke="#000000"
-                      strokeWidth="0.9"
-                      markerStart="url(#sharpArrow)"
-                      markerEnd="url(#sharpArrow)"
-                    />
-                    <text
-                      x={boltOriginX + scThick / 2}
-                      y={centerlineY - scD2 / 2 - 42}
-                      textAnchor="middle"
-                      fill="#000000"
-                      fontSize="15"
-                      fontWeight="700"
-                      className="font-engineer"
-                    >
-                      s = {thickness}
-                    </text>
-                  </g>
-
-                  {/* d1 and d2 */}
-                  <text
-                    x={frontViewX}
-                    y={centerlineY + scD2 / 2 + 40}
+                    x={boltOriginX + scK / 2}
+                    y={centerlineY - scS / 2 - 42}
                     textAnchor="middle"
                     fill="#000000"
                     fontSize="16"
                     fontWeight="700"
                     className="font-engineer"
                   >
-                    Ø{d1} x Ø{d2} mm
+                    m = {k}
+                  </text>
+                  {/* Wrench s */}
+                  <text
+                    x={frontViewX}
+                    y={centerlineY + scS / 2 + 34}
+                    textAnchor="middle"
+                    fill="#000000"
+                    fontSize="16"
+                    fontWeight="700"
+                    className="font-engineer"
+                  >
+                    s = {s}
+                  </text>
+                </g>
+              )}
+
+              {/* -------------------------------------------------------------- */}
+              {/* ARRUELAS: DIN 125A, DIN 127B, ASTM F436                        */}
+              {/* -------------------------------------------------------------- */}
+              {isWasher && (
+                <g>
+                  <rect
+                    x={boltOriginX}
+                    y={centerlineY - scD2 / 2}
+                    width={scThick}
+                    height={(scD2 - scD1) / 2}
+                    fill="url(#hatch45)"
+                    stroke="#000000"
+                    strokeWidth="2.4"
+                  />
+                  <rect
+                    x={boltOriginX}
+                    y={centerlineY + scD1 / 2}
+                    width={scThick}
+                    height={(scD2 - scD1) / 2}
+                    fill="url(#hatch45)"
+                    stroke="#000000"
+                    strokeWidth="2.4"
+                  />
+                  <g transform={`translate(${frontViewX}, ${centerlineY})`}>
+                    <circle cx="0" cy="0" r={scD2 / 2} fill="#ffffff" stroke="#000000" strokeWidth="2.8" />
+                    <circle cx="0" cy="0" r={scD1 / 2} fill="#ffffff" stroke="#000000" strokeWidth="2.2" />
+                  </g>
+                  <text
+                    x={boltOriginX + scThick / 2}
+                    y={centerlineY - scD2 / 2 - 42}
+                    textAnchor="middle"
+                    fill="#000000"
+                    fontSize="15"
+                    fontWeight="700"
+                    className="font-engineer"
+                  >
+                    s = {thickness}
                   </text>
                 </g>
               )}
 
               {/* ============================================================== */}
               {/* ZONE 3: FACTORY FLOOR TOLERANCE TABLE (CANTO SUPERIOR DIR)     */}
-              {/* X: 1069 to 1549 (W: 480) | Y: 38 to 258 (H: 220)               */}
               {/* ============================================================== */}
               <g transform="translate(1069, 38)">
                 <rect x="0" y="0" width="480" height="220" fill="#ffffff" stroke="#000000" strokeWidth="2.2" />
@@ -1324,17 +1356,10 @@ export function TechnicalDrawingSheet({
                 </text>
 
                 <rect x="0" y="32" width="480" height="24" fill="#ffffff" stroke="#000000" strokeWidth="1.0" />
-                <text x="12" y="48" fill="#000000" fontSize="10.5" fontWeight="700" className="font-iso">
-                  COTAS CRÍTICAS
-                </text>
-                <text x="160" y="48" fill="#000000" fontSize="10.5" fontWeight="700" className="font-iso">
-                  TOLERÂNCIA (MÍN / MÁX)
-                </text>
-                <text x="340" y="48" fill="#000000" fontSize="10.5" fontWeight="700" className="font-iso">
-                  INSTRUMENTO
-                </text>
+                <text x="12" y="48" fill="#000000" fontSize="10.5" fontWeight="700" className="font-iso">COTAS CRÍTICAS</text>
+                <text x="160" y="48" fill="#000000" fontSize="10.5" fontWeight="700" className="font-iso">TOLERÂNCIA (MÍN / MÁX)</text>
+                <text x="340" y="48" fill="#000000" fontSize="10.5" fontWeight="700" className="font-iso">INSTRUMENTO</text>
 
-                {/* Vertical Separators */}
                 <line x1="150" y1="32" x2="150" y2="220" stroke="#000000" strokeWidth="1.0" />
                 <line x1="330" y1="32" x2="330" y2="220" stroke="#000000" strokeWidth="1.0" />
 
@@ -1344,21 +1369,15 @@ export function TechnicalDrawingSheet({
                   { cota: `Cabeça (k = ${k})`, tol: `${(k - 0.25).toFixed(2)} / ${(k + 0.25).toFixed(2)} mm (js15)`, inst: 'Relógio Apalpador' },
                   { cota: `Rosca (${P}mm)`, tol: 'Campo 6g / 6H (ISO 965)', inst: 'Calibrador Anel P/NP' },
                   { cota: `Compr. (L = ${L})`, tol: `${L - 1.5} / ${L + 1.5} mm (DIN 78)`, inst: 'Escala / Paquímetro' },
-                  { cota: 'Batimento Cabeça', tol: '0.15 mm máx FIM', inst: 'Relógio Comparador' }
+                  { cota: `Corte Bruto (+${sobremetal})`, tol: `${L + sobremetal - 1.0} / ${L + sobremetal + 1.0} mm`, inst: 'Trena Industrial' }
                 ].map((row, idx) => {
                   const y = 56 + idx * 27.2;
                   return (
                     <g key={idx}>
                       <line x1="0" y1={y} x2="480" y2={y} stroke="#000000" strokeWidth="0.8" />
-                      <text x="12" y={y + 18} fill="#000000" fontSize="11" fontWeight="600" className="font-iso">
-                        {row.cota}
-                      </text>
-                      <text x="160" y={y + 18} fill="#000000" fontSize="12" fontWeight="700" className="font-engineer">
-                        {row.tol}
-                      </text>
-                      <text x="340" y={y + 18} fill="#000000" fontSize="10.5" className="font-iso">
-                        {row.inst}
-                      </text>
+                      <text x="12" y={y + 18} fill="#000000" fontSize="11" fontWeight="600" className="font-iso">{row.cota}</text>
+                      <text x="160" y={y + 18} fill="#000000" fontSize="12" fontWeight="700" className="font-engineer">{row.tol}</text>
+                      <text x="340" y={y + 18} fill="#000000" fontSize="10.5" className="font-iso">{row.inst}</text>
                     </g>
                   );
                 })}
@@ -1366,49 +1385,46 @@ export function TechnicalDrawingSheet({
 
               {/* ============================================================== */}
               {/* ZONE 4: TECHNICAL NOTES (CANTO INFERIOR ESQUERDO)               */}
-              {/* X: 115 to 900 | Y: 930 to 1060                                 */}
               {/* ============================================================== */}
-              <g transform="translate(115, 930)">
+              <g transform="translate(115, 920)">
                 <text x="0" y="0" fill="#000000" fontSize="13" fontWeight="800" className="font-iso">
                   NOTAS GERAIS DE FABRICAÇÃO:
                 </text>
                 <g fill="#000000" fontSize="12.5" fontWeight="600" className="font-engineer">
                   <text x="0" y="24">1. TODAS AS DIMENSÕES EM MILÍMETROS (mm) EXCETO INDICAÇÃO CONTRÁRIA.</text>
-                  <text x="0" y="46">2. TOLERÂNCIAS GERAIS NÃO INDICADAS CONFORME NORMA ISO 2768-mK.</text>
-                  <text x="0" y="68">3. ROSCA MÉTRICA GROSSA PADRONIZADA CONFORME DIN 13 / ISO 965-1.</text>
-                  <text x="0" y="90">4. PEÇA ISENTA DE REBARBAS, BORDAS CORTANTES E RESÍDUOS DE ÓLEO.</text>
-                  <text x="0" y="112">5. ENSAIO DE TRAÇÃO E DUREZA SEGUNDO NBR ISO 898-1 / CQ AQL 0.65.</text>
+                  <text x="0" y="44">2. TOLERÂNCIAS GERAIS NÃO INDICADAS CONFORME NORMA ISO 2768-mK.</text>
+                  <text x="0" y="64">3. ROSCA PADRONIZADA CONFORME NORMA {product.standard_code}.</text>
+                  <text x="0" y="84">4. PEÇA ISENTA DE REBARBAS, BORDAS CORTANTES E RESÍDUOS DE ÓLEO.</text>
+                  <text x="0" y="104">5. ENSAIO DE TRAÇÃO E DUREZA SEGUNDO NBR ISO 898-1 / CQ AQL 0.65.</text>
+                  <text x="0" y="124" fill="#b91c1c" fontWeight="700">
+                    6. CORTE DO TARUGO PROGRAMADO: L = {k + L + sobremetal} mm (SOBREMETAL DE CORTE: +{sobremetal} mm).
+                  </text>
                 </g>
               </g>
 
               {/* ============================================================== */}
               {/* ZONE 5: DELTA TITLE BLOCK + REVISIONS (CANTO INFERIOR DIREITO) */}
-              {/* X: 969 to 1549 (W: 580) | Y: 854 to 1084 (H: 230)              */}
               {/* ============================================================== */}
               <g transform="translate(969, 854)">
-                {/* Outer Carimbo Frame */}
                 <rect x="0" y="0" width="580" height="230" fill="#ffffff" stroke="#000000" strokeWidth="2.8" />
 
-                {/* Revision Bar (Header) */}
+                {/* Revision Bar */}
                 <rect x="0" y="0" width="580" height="24" fill="#f8fafc" stroke="#000000" strokeWidth="1.2" />
                 <text x="20" y="17" textAnchor="middle" fill="#000000" fontSize="10.5" fontWeight="800" className="font-iso">REV</text>
                 <text x="48" y="17" fill="#000000" fontSize="10.5" fontWeight="800" className="font-iso">MODIFICAÇÃO DE ENGENHARIA</text>
                 <text x="445" y="17" textAnchor="middle" fill="#000000" fontSize="10.5" fontWeight="800" className="font-iso">DATA</text>
                 <text x="535" y="17" textAnchor="middle" fill="#000000" fontSize="10.5" fontWeight="800" className="font-iso">AUTOR</text>
 
-                {/* Revision Row 1 */}
                 <rect x="0" y="24" width="580" height="26" fill="#ffffff" stroke="#000000" strokeWidth="1.0" />
-                <text x="20" y="42" textAnchor="middle" fill="#000000" fontSize="12" fontWeight="700" className="font-engineer">02</text>
-                <text x="48" y="42" fill="#000000" fontSize="12" fontWeight="600" className="font-engineer">Emissão Paramétrica Oficial DeltaFix Core Engine</text>
+                <text x="20" y="42" textAnchor="middle" fill="#000000" fontSize="12" fontWeight="700" className="font-engineer">03</text>
+                <text x="48" y="42" fill="#000000" fontSize="12" fontWeight="600" className="font-engineer">Adição de Sobremetal de Corte (+{sobremetal}mm) e Geometria Paramétrica</text>
                 <text x="445" y="42" textAnchor="middle" fill="#000000" fontSize="12" fontWeight="700" className="font-engineer">{new Date().toLocaleDateString('pt-BR')}</text>
                 <text x="535" y="42" textAnchor="middle" fill="#000000" fontSize="12" fontWeight="700" className="font-engineer">E. Silva</text>
 
                 <line x1="0" y1="50" x2="580" y2="50" stroke="#000000" strokeWidth="2.0" />
 
-                {/* Left: Official Delta Brand Box (W: 190, H: 180) */}
+                {/* Delta Brand Box */}
                 <rect x="0" y="50" width="190" height="180" fill="#ffffff" stroke="#000000" strokeWidth="1.4" />
-
-                {/* Embedded Vector Delta Logo */}
                 <g transform="translate(10, 58) scale(0.55)">
                   <circle cx="100" cy="100" r="92" fill="#ffffff" stroke="#000000" strokeWidth="2" />
                   <polygon points="65,152 135,152 100,118" fill="#991b1b" stroke="#000000" strokeWidth="1" />
@@ -1420,22 +1436,13 @@ export function TechnicalDrawingSheet({
                   <path d="M 124,68 C 134,54 152,58 162,68 C 150,78 136,112 152,150 C 142,128 128,96 124,68 Z" fill="#b91c1c" />
                 </g>
 
-                <text x="120" y="96" textAnchor="middle" fill="#000000" fontSize="15" fontWeight="800" className="font-stamp">
-                  DELTA
-                </text>
-                <text x="120" y="114" textAnchor="middle" fill="#000000" fontSize="8" fontWeight="700" className="font-iso" letterSpacing="0.08em">
-                  PARAFUSOS ESPECIAIS
-                </text>
-                <text x="120" y="128" textAnchor="middle" fill="#000000" fontSize="7.5" className="font-iso">
-                  ENGENHARIA DE PRODUTO
-                </text>
+                <text x="120" y="96" textAnchor="middle" fill="#000000" fontSize="15" fontWeight="800" className="font-stamp">DELTA</text>
+                <text x="120" y="114" textAnchor="middle" fill="#000000" fontSize="8" fontWeight="700" className="font-iso" letterSpacing="0.08em">PARAFUSOS ESPECIAIS</text>
+                <text x="120" y="128" textAnchor="middle" fill="#000000" fontSize="7.5" className="font-iso">ENGENHARIA DE PRODUTO</text>
 
-                {/* Right: Title, SKU, Number, Material, Scale (W: 390) */}
-                {/* Row 1: Title & SKU (W: 390, H: 60) */}
+                {/* Right: Title, SKU, Number, Material */}
                 <rect x="190" y="50" width="390" height="60" fill="#ffffff" stroke="#000000" strokeWidth="1.4" />
-                <text x="200" y="65" fill="#000000" fontSize="8.5" fontWeight="700" className="font-iso">
-                  DENOMINAÇÃO DO PROJETO:
-                </text>
+                <text x="200" y="65" fill="#000000" fontSize="8.5" fontWeight="700" className="font-iso">DENOMINAÇÃO DO PROJETO:</text>
                 <g transform="translate(200, 70)" clipPath="url(#carimboTitleClip)">
                   <text x="0" y="16" fill="#000000" fontSize="15" fontWeight="700" className="font-engineer">
                     {product.standard_code} - {product.bitola} {product.comprimento ? `x ${product.comprimento}` : ''} ({product.classe_resistencia})
@@ -1445,7 +1452,6 @@ export function TechnicalDrawingSheet({
                   </text>
                 </g>
 
-                {/* Row 2: Drawing Number, REV, Sheet (W: 220 + 85 + 85 = 390, H: 42) */}
                 <rect x="190" y="110" width="220" height="42" fill="#ffffff" stroke="#000000" strokeWidth="1.2" />
                 <text x="198" y="123" fill="#000000" fontSize="8" fontWeight="700" className="font-iso">Nº DESENHO:</text>
                 <g transform="translate(198, 126)" clipPath="url(#carimboDrawingNoClip)">
@@ -1456,13 +1462,12 @@ export function TechnicalDrawingSheet({
 
                 <rect x="410" y="110" width="85" height="42" fill="#ffffff" stroke="#000000" strokeWidth="1.2" />
                 <text x="418" y="123" fill="#000000" fontSize="8" fontWeight="700" className="font-iso">REV:</text>
-                <text x="452" y="143" textAnchor="middle" fill="#000000" fontSize="16" fontWeight="700" className="font-engineer">02</text>
+                <text x="452" y="143" textAnchor="middle" fill="#000000" fontSize="16" fontWeight="700" className="font-engineer">03</text>
 
                 <rect x="495" y="110" width="85" height="42" fill="#ffffff" stroke="#000000" strokeWidth="1.2" />
                 <text x="503" y="123" fill="#000000" fontSize="8" fontWeight="700" className="font-iso">FOLHA:</text>
                 <text x="537" y="143" textAnchor="middle" fill="#000000" fontSize="13" fontWeight="700" className="font-engineer">1 / 1</text>
 
-                {/* Row 3: Material & Finish (W: 195 + 195 = 390, H: 42) */}
                 <rect x="190" y="152" width="195" height="42" fill="#ffffff" stroke="#000000" strokeWidth="1.2" />
                 <text x="198" y="165" fill="#000000" fontSize="8" fontWeight="700" className="font-iso">MATÉRIA-PRIMA:</text>
                 <g transform="translate(198, 168)" clipPath="url(#carimboMaterialClip)">
@@ -1479,7 +1484,6 @@ export function TechnicalDrawingSheet({
                   </text>
                 </g>
 
-                {/* Row 4: Signoff (W: 110 + 110 + 85 + 85 = 390, H: 36) */}
                 <rect x="190" y="194" width="110" height="36" fill="#ffffff" stroke="#000000" strokeWidth="1.2" />
                 <text x="196" y="206" fill="#000000" fontSize="7.5" fontWeight="700" className="font-iso">ELABORADO:</text>
                 <text x="196" y="222" fill="#000000" fontSize="11" fontWeight="700" className="font-engineer">E. Silva</text>

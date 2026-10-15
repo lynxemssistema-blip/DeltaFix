@@ -1,14 +1,25 @@
 // src/lib/standards/types.ts - Type definitions for DeltaFix Core Engine
 
-export type StandardFamily = 'parafuso' | 'porca' | 'arruela';
+export type StandardFamily = 'parafuso' | 'porca' | 'arruela' | 'prisioneiro' | 'barra_roscada';
 export type StandardSystem = 'metrico' | 'polegada';
 
+export type GeometricArchetype =
+  | 'hex_bolt'
+  | 'heavy_hex_bolt'
+  | 'socket_head_allen'
+  | 'countersunk_allen'
+  | 'stud_bolt'
+  | 'hex_nut'
+  | 'washer_plain'
+  | 'washer_spring';
+
 export interface EngineeringStandard {
-  id: string;
-  code: string; // 'DIN 933', 'DIN 931', 'DIN 912', 'DIN 934', 'DIN 125A', 'DIN 127B'
+  id?: string;
+  code: string; // 'DIN 933', 'DIN 931', 'ASTM A325', etc.
   family: StandardFamily;
   system: StandardSystem;
   description: string;
+  geometric_archetype?: GeometricArchetype;
   calculation_formulas?: Record<string, unknown>;
   created_at?: string;
   updated_at?: string;
@@ -91,6 +102,8 @@ export interface ProductItem {
   peso_bruto_kg: number;
   fator_perda_percentual: number;
   comprimento_rosca_b?: number;
+  sobremetal_corte?: number; // Sobremetal de corte em mm (paramétrico)
+  geometric_archetype?: GeometricArchetype;
   especificacoes_adicionais?: Record<string, unknown>;
   created_at?: string;
 }

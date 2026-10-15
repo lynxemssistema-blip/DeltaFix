@@ -8,7 +8,8 @@ import {
   BaseMaterial,
   SurfaceFinish,
   ProductItem,
-  StandardDimension
+  StandardDimension,
+  EngineeringStandard
 } from '@/lib/standards/types';
 import { DIN_STANDARDS, DIMENSIONS_MAP } from '@/lib/standards/din-data';
 import { generateIndustrialSku } from '@/lib/calculators/sku-generator';
@@ -16,6 +17,7 @@ import { calculateFastenerWeight } from '@/lib/calculators/weight-calculator';
 import { CadViewer } from '@/components/cad/CadViewer';
 import { TechnicalDrawingSheet } from '@/components/cad/TechnicalDrawingSheet';
 import { IndustrialCopilot } from '@/components/ai/IndustrialCopilot';
+import { NewStandardModal } from '@/components/forms/NewStandardModal';
 import { generateTechnicalDatasheetPdf } from '@/lib/export/pdf-generator';
 import {
   Cpu,
@@ -36,7 +38,9 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Eye,
-  EyeOff
+  EyeOff,
+  Scissors,
+  Plus
 } from 'lucide-react';
 
 interface EngineeringConfiguratorProps {
@@ -44,57 +48,120 @@ interface EngineeringConfiguratorProps {
 }
 
 export function EngineeringConfigurator({ initialProducts = [] }: EngineeringConfiguratorProps) {
-  // 1. Core Configurator State
+  // 1. Dynamic Standards Catalog State (Supabase + DIN defaults)
+  const [allStandards, setAllStandards] = useState<EngineeringStandard[]>(DIN_STANDARDS);
+  const [dimensionsCatalog, setDimensionsCatalog] = useState<Record<string, Record<string, StandardDimension>>>(DIMENSIONS_MAP);
+  const [isNewStandardModalOpen, setIsNewStandardModalOpen] = useState(false);
+
+  // 2. Core Configurator State
   const [family, setFamily] = useState<StandardFamily>('parafuso');
   const [standardCode, setStandardCode] = useState<string>('DIN 933');
   const [bitola, setBitola] = useState<string>('M20');
   const [comprimento, setComprimento] = useState<number>(80);
+  const [sobremetalCorte, setSobremetalCorte] = useState<number>(5.0);
   const [classeResistencia, setClasseResistencia] = useState<ResistanceClass>('8.8');
   const [materialBase, setMaterialBase] = useState<BaseMaterial>('Aço Médio Carbono SAE 1045');
   const [tratamentoSuperficial, setTratamentoSuperficial] = useState<SurfaceFinish>('Zincado Branco (ZB)');
   const [codigoInternoDelta, setCodigoInternoDelta] = useState<string>('PF-ESP-M20-80');
 
-  // 2. Active Tab State & Layout Controls
+  // 3. Active Tab State & Layout Controls
   const [activeTab, setActiveTab] = useState<'cad' | 'bom' | 'routing' | 'ai' | 'history'>('cad');
   const [cadMode, setCadMode] = useState<'nanquim_a3' | 'blueprint'>('nanquim_a3');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [showKpis, setShowKpis] = useState(true);
 
-  // 3. Persistence & History State
+  // 4. Persistence & History State
   const [savedProducts, setSavedProducts] = useState<ProductItem[]>(initialProducts);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
 
-  // 4. Predictive search for Delta legacy code
+  // 5. Predictive search for Delta legacy code
   const [searchFilter, setSearchFilter] = useState('');
+
+  // Load dynamic standards from Supabase on mount
+  useEffect(() => {
+    fetch('/api/standards')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.standards && Array.isArray(data.standards)) {
+          setAllStandards(data.standards);
+        }
+        if (data.dimensions && typeof data.dimensions === 'object') {
+          setDimensionsCatalog((prev) => ({
+            ...prev,
+            ...data.dimensions
+          }));
+        }
+      })
+      .catch((err) => console.error('Error loading standards catalog from API:', err));
+  }, []);
 
   // Available Standards filtered by Family
   const availableStandards = useMemo(() => {
-    return DIN_STANDARDS.filter((s) => s.family === family);
-  }, [family]);
+    return allStandards.filter((s) => s.family === family);
+  }, [allStandards, family]);
 
   // Handle Family Switch: Auto-select default standard and bitola
   const handleFamilyChange = (newFamily: StandardFamily) => {
     setFamily(newFamily);
+    const matchingStandards = allStandards.filter((s) => s.family === newFamily);
+    const defaultStd = matchingStandards[0]?.code || (
+      newFamily === 'parafuso' ? 'DIN 933' :
+      newFamily === 'porca' ? 'DIN 934' :
+      newFamily === 'arruela' ? 'DIN 125A' :
+      newFamily === 'prisioneiro' ? 'ASTM A193 B7' :
+      'DIN 975'
+    );
+    setStandardCode(defaultStd);
+
+    const dims = dimensionsCatalog[defaultStd] || {};
+    const bitolas = Object.keys(dims);
+    const firstBitola = bitolas[0] || 'M20';
+    setBitola(firstBitola);
+
     if (newFamily === 'parafuso') {
-      setStandardCode('DIN 933');
-      setBitola('M20');
       setComprimento(80);
       setClasseResistencia('8.8');
     } else if (newFamily === 'porca') {
-      setStandardCode('DIN 934');
-      setBitola('M20');
       setClasseResistencia('Classe 8');
     } else if (newFamily === 'arruela') {
-      setStandardCode('DIN 125A');
-      setBitola('M20');
+      setClasseResistencia('8.8');
+    } else if (newFamily === 'prisioneiro') {
+      setComprimento(120);
+      setClasseResistencia('10.9');
+    } else if (newFamily === 'barra_roscada') {
+      setComprimento(1000);
       setClasseResistencia('8.8');
     }
   };
 
+  // Callback when a new standard is registered dynamically (AI or Manual)
+  const handleStandardCreated = (newStd: EngineeringStandard, newDims: Record<string, StandardDimension>) => {
+    setAllStandards((prev) => {
+      const exists = prev.some((s) => s.code === newStd.code);
+      if (exists) {
+        return prev.map((s) => (s.code === newStd.code ? newStd : s));
+      }
+      return [newStd, ...prev];
+    });
+    setDimensionsCatalog((prev) => ({
+      ...prev,
+      [newStd.code]: newDims
+    }));
+    setFamily(newStd.family);
+    setStandardCode(newStd.code);
+    const bitolas = Object.keys(newDims);
+    if (bitolas.length > 0) {
+      setBitola(bitolas[0]);
+      if (newDims[bitolas[0]].comprimentos_validos?.length) {
+        setComprimento(newDims[bitolas[0]].comprimentos_validos![0]);
+      }
+    }
+  };
+
   // Available Bitolas for the selected Standard
-  const standardDimensions = DIMENSIONS_MAP[standardCode] || {};
+  const standardDimensions = dimensionsCatalog[standardCode] || {};
   const availableBitolas = Object.keys(standardDimensions);
 
   // Selected Dimension Object
@@ -110,25 +177,26 @@ export function EngineeringConfigurator({ initialProducts = [] }: EngineeringCon
   // Valid Lengths for current standard & bitola
   const validLengths = currentDimension.comprimentos_validos || [];
 
-  // 5. Reactive Physics & Weight Calculations
+  // 6. Reactive Physics & Weight Calculations
   const weightResult = useMemo(() => {
     return calculateFastenerWeight({
       family,
       standardCode,
       dimension: currentDimension,
-      comprimento: family === 'parafuso' ? comprimento : undefined,
-      material: materialBase
+      comprimento: family !== 'porca' && family !== 'arruela' ? comprimento : undefined,
+      material: materialBase,
+      sobremetalCorte
     });
-  }, [family, standardCode, currentDimension, comprimento, materialBase]);
+  }, [family, standardCode, currentDimension, comprimento, materialBase, sobremetalCorte]);
 
-  // 6. Reactive SKU Generation
+  // 7. Reactive SKU Generation
   const skuGerado = useMemo(() => {
     return generateIndustrialSku({
       family,
       standardCode,
       bitola,
       passo: currentDimension.passo,
-      comprimento: family === 'parafuso' ? comprimento : undefined,
+      comprimento: family !== 'porca' && family !== 'arruela' ? comprimento : undefined,
       classeResistencia,
       tratamentoSuperficial
     });
@@ -136,6 +204,7 @@ export function EngineeringConfigurator({ initialProducts = [] }: EngineeringCon
 
   // Assemble full current Product Object
   const currentProduct: ProductItem = useMemo(() => {
+    const stdDef = allStandards.find((s) => s.code === standardCode);
     return {
       sku_gerado: skuGerado,
       codigo_interno_delta: codigoInternoDelta,
@@ -143,14 +212,16 @@ export function EngineeringConfigurator({ initialProducts = [] }: EngineeringCon
       family,
       bitola,
       passo: currentDimension.passo,
-      comprimento: family === 'parafuso' ? comprimento : undefined,
+      comprimento: family !== 'porca' && family !== 'arruela' ? comprimento : undefined,
       classe_resistencia: classeResistencia,
       material_base: materialBase,
       tratamento_superficial: tratamentoSuperficial,
       peso_liquido_kg: weightResult.pesoLiquidoKg,
       peso_bruto_kg: weightResult.pesoBrutoKg,
       fator_perda_percentual: weightResult.fatorPerdaPercentual,
-      comprimento_rosca_b: weightResult.comprimentoRoscaB
+      comprimento_rosca_b: weightResult.comprimentoRoscaB,
+      sobremetal_corte: sobremetalCorte,
+      geometric_archetype: stdDef?.geometric_archetype
     };
   }, [
     skuGerado,
@@ -163,7 +234,9 @@ export function EngineeringConfigurator({ initialProducts = [] }: EngineeringCon
     classeResistencia,
     materialBase,
     tratamentoSuperficial,
-    weightResult
+    weightResult,
+    sobremetalCorte,
+    allStandards
   ]);
 
   // Load products from Supabase on mount
@@ -352,62 +425,113 @@ export function EngineeringConfigurator({ initialProducts = [] }: EngineeringCon
               </div>
             </div>
 
-          {/* 1. Element Family Selector (Parafuso / Porca / Arruela) */}
+          {/* 1. Element Family Selector (Parafuso / Porca / Arruela / Prisioneiro / Barra Roscada) */}
           <div>
-            <label className="text-xs font-mono text-slate-400 uppercase font-semibold block mb-2">
-              Tipo de Fixador Industrial
-            </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-mono text-slate-400 uppercase font-semibold">
+                Tipo de Fixador Industrial
+              </label>
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/60 px-1.5 py-0.2 rounded font-semibold">
+                Normas Ilimitadas
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-1.5">
               <button
                 type="button"
                 onClick={() => handleFamilyChange('parafuso')}
-                className={`py-2 px-3 text-xs font-bold rounded-lg border transition-all flex flex-col items-center gap-1 ${
+                className={`py-2 px-2 text-xs font-bold rounded-lg border transition-all flex flex-col items-center gap-1 ${
                   family === 'parafuso'
                     ? 'bg-cyan-500/10 border-cyan-400 text-cyan-300 shadow-md shadow-cyan-950'
                     : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
                 }`}
               >
                 <span>🔩 Parafuso</span>
-                <span className="text-[10px] font-normal text-slate-500 font-mono">DIN 933/931/912</span>
+                <span className="text-[9px] font-normal text-slate-500 font-mono">DIN 933/912/A325</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => handleFamilyChange('porca')}
-                className={`py-2 px-3 text-xs font-bold rounded-lg border transition-all flex flex-col items-center gap-1 ${
+                className={`py-2 px-2 text-xs font-bold rounded-lg border transition-all flex flex-col items-center gap-1 ${
                   family === 'porca'
                     ? 'bg-cyan-500/10 border-cyan-400 text-cyan-300 shadow-md shadow-cyan-950'
                     : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
                 }`}
               >
                 <span>🔘 Porca</span>
-                <span className="text-[10px] font-normal text-slate-500 font-mono">DIN 934</span>
+                <span className="text-[9px] font-normal text-slate-500 font-mono">DIN 934/985</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => handleFamilyChange('arruela')}
-                className={`py-2 px-3 text-xs font-bold rounded-lg border transition-all flex flex-col items-center gap-1 ${
+                className={`py-2 px-2 text-xs font-bold rounded-lg border transition-all flex flex-col items-center gap-1 ${
                   family === 'arruela'
                     ? 'bg-cyan-500/10 border-cyan-400 text-cyan-300 shadow-md shadow-cyan-950'
                     : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
                 }`}
               >
                 <span>⭕ Arruela</span>
-                <span className="text-[10px] font-normal text-slate-500 font-mono">DIN 125A / 127B</span>
+                <span className="text-[9px] font-normal text-slate-500 font-mono">DIN 125A/127B</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleFamilyChange('prisioneiro')}
+                className={`py-2 px-2 text-xs font-bold rounded-lg border transition-all flex flex-col items-center gap-1 ${
+                  family === 'prisioneiro'
+                    ? 'bg-cyan-500/10 border-cyan-400 text-cyan-300 shadow-md shadow-cyan-950'
+                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                }`}
+              >
+                <span>🔗 Prisioneiro</span>
+                <span className="text-[9px] font-normal text-slate-500 font-mono">ASTM A193 B7</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleFamilyChange('barra_roscada')}
+                className={`py-2 px-2 text-xs font-bold rounded-lg border transition-all flex flex-col items-center gap-1 ${
+                  family === 'barra_roscada'
+                    ? 'bg-cyan-500/10 border-cyan-400 text-cyan-300 shadow-md shadow-cyan-950'
+                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                }`}
+              >
+                <span>⚙️ Barra Rosc.</span>
+                <span className="text-[9px] font-normal text-slate-500 font-mono">DIN 975/B7</span>
               </button>
             </div>
           </div>
 
-          {/* 2. Standard (Norma DIN) Selection */}
+          {/* 2. Standard (Norma DIN / ASTM / ISO) Selection with Dynamic Registration */}
           <div>
-            <label className="text-xs font-mono text-slate-400 uppercase font-semibold block mb-1.5">
-              Norma Técnica Internacional
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-mono text-slate-400 uppercase font-semibold">
+                Norma Técnica ({availableStandards.length})
+              </label>
+              <button
+                type="button"
+                onClick={() => setIsNewStandardModalOpen(true)}
+                className="flex items-center gap-1 text-[11px] font-bold text-cyan-300 hover:text-white bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-700/70 px-2 py-0.5 rounded transition-all shadow-sm"
+                title="Cadastrar nova norma técnica sem limites (ASTM, DIN, ISO) com suporte a IA"
+              >
+                <Sparkles className="w-3 h-3 text-amber-400" />
+                <span>+ Cadastrar Norma</span>
+              </button>
+            </div>
             <select
               value={standardCode}
               onChange={(e) => {
-                setStandardCode(e.target.value);
+                const newCode = e.target.value;
+                setStandardCode(newCode);
+                const dims = dimensionsCatalog[newCode] || {};
+                const bitolas = Object.keys(dims);
+                if (bitolas.length > 0 && !dims[bitola]) {
+                  setBitola(bitolas[0]);
+                  if (dims[bitolas[0]].comprimentos_validos?.length) {
+                    setComprimento(dims[bitolas[0]].comprimentos_validos![0]);
+                  }
+                }
               }}
               className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 font-medium focus:outline-none focus:border-cyan-500"
             >
@@ -419,27 +543,27 @@ export function EngineeringConfigurator({ initialProducts = [] }: EngineeringCon
             </select>
           </div>
 
-          {/* 3. Bitola (Nominal Size) & Real-time Auto-completed Dimensions */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-mono text-slate-400 uppercase font-semibold block mb-1.5">
-                Bitola Nominal ({family === 'arruela' ? 'Para Parafuso' : 'd'})
-              </label>
-              <select
-                value={bitola}
-                onChange={(e) => setBitola(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono font-bold text-amber-400 focus:outline-none focus:border-cyan-500"
-              >
-                {availableBitolas.map((b) => (
-                  <option key={b} value={b}>
-                    {b} (Ø {standardDimensions[b]?.diametro_nominal}mm)
-                  </option>
-                ))}
-              </select>
-            </div>
+          {/* 3. Bitola (Nominal Size) */}
+          <div>
+            <label className="text-xs font-mono text-slate-400 uppercase font-semibold block mb-1.5">
+              Bitola Nominal ({family === 'arruela' ? 'Para Parafuso' : 'd'})
+            </label>
+            <select
+              value={bitola}
+              onChange={(e) => setBitola(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono font-bold text-amber-400 focus:outline-none focus:border-cyan-500"
+            >
+              {availableBitolas.map((b) => (
+                <option key={b} value={b}>
+                  {b} (Ø {standardDimensions[b]?.diametro_nominal}mm)
+                </option>
+              ))}
+            </select>
+          </div>
 
-            {/* Length (L) for Screws */}
-            {family === 'parafuso' && (
+          {/* 4. Comprimento (L) e Sobremetal de Corte (mm) */}
+          {family !== 'porca' && family !== 'arruela' && (
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-mono text-slate-400 uppercase font-semibold block mb-1.5">
                   Comprimento (L) mm
@@ -465,8 +589,34 @@ export function EngineeringConfigurator({ initialProducts = [] }: EngineeringCon
                   />
                 )}
               </div>
-            )}
-          </div>
+
+              {/* Sobremetal de Corte do Tarugo Bruto (Parâmetro Requisitado DeltaFix) */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-mono text-slate-400 uppercase font-semibold flex items-center gap-1">
+                    <Scissors className="w-3 h-3 text-rose-400" />
+                    <span>Sobremetal Corte</span>
+                  </label>
+                  <span className="text-[9px] font-mono text-rose-300 bg-rose-950/80 border border-rose-800 px-1 py-0.2 rounded font-bold">
+                    CAD Cotado
+                  </span>
+                </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    max="50"
+                    step="0.5"
+                    value={sobremetalCorte}
+                    onChange={(e) => setSobremetalCorte(Math.max(0, Number(e.target.value) || 0))}
+                    className="w-full bg-slate-950 border border-rose-800/60 rounded-lg px-3 py-2 text-xs font-mono font-bold text-rose-300 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
+                    title="Sobremetal de corte para serra e faceamento do tarugo bruto"
+                  />
+                  <span className="absolute right-2.5 top-2 text-xs text-rose-400/80 font-mono">mm</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Auto-completed Dimensional Indicators Readout */}
           <div className="bg-slate-950/80 border border-slate-800 rounded-lg p-3 text-xs font-mono space-y-1.5">
@@ -1025,6 +1175,13 @@ export function EngineeringConfigurator({ initialProducts = [] }: EngineeringCon
           )}
         </div>
       </div>
+
+      {/* Dynamic Standards Registration Modal with Lynx VPS AI */}
+      <NewStandardModal
+        isOpen={isNewStandardModalOpen}
+        onClose={() => setIsNewStandardModalOpen(false)}
+        onStandardCreated={handleStandardCreated}
+      />
     </div>
   );
 }
