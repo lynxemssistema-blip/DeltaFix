@@ -97,13 +97,13 @@ export interface ProductItem {
   codigo_interno_delta?: string;
   standard_id?: string;
   standard_code: string;
-  family: StandardFamily;
+  family: StandardFamily | 'chumbador' | 'outros' | string;
   bitola: string;
   passo: number;
   comprimento?: number;
-  classe_resistencia: ResistanceClass;
-  material_base: BaseMaterial;
-  tratamento_superficial: SurfaceFinish;
+  classe_resistencia: ResistanceClass | string;
+  material_base: BaseMaterial | string;
+  tratamento_superficial: SurfaceFinish | string;
   peso_liquido_kg: number;
   peso_bruto_kg: number;
   fator_perda_percentual: number;

@@ -9,6 +9,7 @@ import {
   getSavedOrganizations,
   getSavedApprovals
 } from '@/lib/services/commercialService';
+import { ProductCatalogManagement } from '@/components/engineering/ProductCatalogManagement';
 import { OverviewDashboard } from '@/components/dashboard/OverviewDashboard';
 import { CompaniesManagement } from '@/components/commercial/CompaniesManagement';
 import { OrdersQuotesManagement } from '@/components/commercial/OrdersQuotesManagement';
@@ -53,6 +54,7 @@ export type ActiveModule =
   | 'visao_geral'
   | 'empresas'
   | 'pedidos'
+  | 'catalogo_produtos'
   | 'produtos'
   | 'normas'
   | 'desenho'
@@ -356,16 +358,30 @@ export function AppLayout({ initialProducts }: AppLayoutProps) {
               <div className="space-y-0.5">
                 <button
                   type="button"
+                  onClick={() => setActiveModule('catalogo_produtos')}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs transition-all ${
+                    activeModule === 'catalogo_produtos'
+                      ? 'bg-emerald-950/80 text-emerald-300 font-bold border border-emerald-700 shadow-md'
+                      : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+                  }`}
+                  title="Catálogo Geral de Produtos e Cadastro Livre de Peças Especiais"
+                >
+                  <Boxes className="w-4 h-4 shrink-0 text-emerald-400" />
+                  {!sidebarCollapsed && <span>├ 📋 Catálogo de Produtos</span>}
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setActiveModule('produtos')}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs transition-all ${
                     activeModule === 'produtos'
                       ? 'bg-cyan-950 text-cyan-300 font-bold border border-cyan-800'
                       : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
                   }`}
-                  title="Configurador de Produtos e Peças Especiais"
+                  title="Configurador de Normas Técnicas e Peças Paramétricas"
                 >
                   <Compass className="w-4 h-4 shrink-0 text-sky-400" />
-                  {!sidebarCollapsed && <span>├ Produtos & Especiais</span>}
+                  {!sidebarCollapsed && <span>├ ⚙️ Configurador de Normas</span>}
                 </button>
 
                 <button
@@ -548,6 +564,15 @@ export function AppLayout({ initialProducts }: AppLayoutProps) {
 
             {activeModule === 'pedidos' && <OrdersQuotesManagement />}
 
+            {activeModule === 'catalogo_produtos' && (
+              <ProductCatalogManagement
+                onSelectProductForCAD={(prod) => {
+                  setActiveModule('desenho');
+                }}
+                onNavigateToConfigurator={() => setActiveModule('produtos')}
+              />
+            )}
+
             {activeModule === 'produtos' && (
               <EngineeringConfigurator initialProducts={initialProducts} defaultSubTab="configurador" />
             )}
@@ -630,10 +655,18 @@ export function AppLayout({ initialProducts }: AppLayoutProps) {
               </button>
               <button
                 type="button"
+                onClick={() => handleSelectModule('catalogo_produtos')}
+                className="w-full text-left p-2 rounded-lg hover:bg-slate-800 text-slate-200 flex items-center justify-between"
+              >
+                <span>📋 Catálogo Geral de Produtos (Com Cadastro Livre)</span>
+                <span className="text-[10px] font-mono text-emerald-400">Ir</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => handleSelectModule('produtos')}
                 className="w-full text-left p-2 rounded-lg hover:bg-slate-800 text-slate-200 flex items-center justify-between"
               >
-                <span>⚙️ Configurador de Produtos & Peça Especial</span>
+                <span>⚙️ Configurador de Normas DIN/ISO/ASTM</span>
                 <span className="text-[10px] font-mono text-cyan-400">Ir</span>
               </button>
               <button

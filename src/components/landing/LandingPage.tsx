@@ -1,4 +1,4 @@
-// src/components/landing/LandingPage.tsx - Landing Page Institucional Zero Scroll (100vh) com Card de Acesso
+// src/components/landing/LandingPage.tsx - Landing Page Institucional DeltaFix Ultra-Detalhada & Criativa
 'use client';
 
 import React, { useState } from 'react';
@@ -19,18 +19,24 @@ import {
   ArrowRight,
   Search,
   Sparkles,
-  HelpCircle,
   AlertCircle,
   PhoneCall,
   MapPin,
   ExternalLink,
-  ChevronRight
+  ChevronRight,
+  Award,
+  Layers,
+  Cpu,
+  Flame,
+  FileCheck2,
+  Info
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
 
 export function LandingPage() {
   const { loginAsDemo } = useAuth();
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
+  const [infoTab, setInfoTab] = useState<'solucoes' | 'sobre' | 'setores' | 'qualidade'>('solucoes');
 
   // Form states - Login
   const [loginEmail, setLoginEmail] = useState('edsonmanoel2012@gmail.com');
@@ -92,15 +98,12 @@ export function LandingPage() {
     setLoginSuccess(null);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email: loginEmail,
         password: loginPassword
       });
 
-      if (error) {
-        throw error;
-      }
-
+      if (error) throw error;
       setLoginSuccess('Autenticação aprovada! Acessando ecossistema DeltaFix...');
     } catch (err: any) {
       setLoginError(err.message || 'Credenciais inválidas. Verifique seu e-mail e senha.');
@@ -122,8 +125,7 @@ export function LandingPage() {
     setRegSuccess(null);
 
     try {
-      // 1. Criar usuário no Supabase Auth
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email: regEmail,
         password: regPassword,
         options: {
@@ -139,7 +141,6 @@ export function LandingPage() {
 
       if (error) throw error;
 
-      // 2. Registrar solicitação para aprovação pelo usuário Master / Super Admin
       addApprovalRequest({
         nome: regFullName,
         email: regEmail,
@@ -152,7 +153,6 @@ export function LandingPage() {
       setRegSuccess(
         'Solicitação de cadastro enviada com sucesso! O Administrador Master da Delta irá analisar e aprovar suas permissões.'
       );
-      // Limpar campos
       setRegFullName('');
       setRegEmail('');
       setRegPassword('');
@@ -179,57 +179,73 @@ export function LandingPage() {
   };
 
   return (
-    <main className="h-screen w-screen overflow-hidden bg-[#070b12] text-slate-100 flex flex-col justify-between relative selection:bg-cyan-500 selection:text-slate-950 font-sans">
-      {/* Background Blueprint Grid Lines & Glow Effects */}
+    <main className="h-screen w-screen overflow-hidden bg-[#060a12] text-slate-100 flex flex-col justify-between relative selection:bg-cyan-500 selection:text-slate-950 font-sans">
+      {/* Background Factory Imagery & Blueprint Grid */}
       <div
-        className="absolute inset-0 opacity-[0.07] pointer-events-none"
+        className="absolute inset-0 opacity-[0.06] pointer-events-none bg-cover bg-center"
+        style={{
+          backgroundImage: `url('https://parafusosdelta.com.br/site/wp-content/uploads/2016/05/banner-5.jpg')`
+        }}
+      />
+      <div
+        className="absolute inset-0 opacity-[0.05] pointer-events-none"
         style={{
           backgroundImage: `linear-gradient(to right, #38bdf8 1px, transparent 1px), linear-gradient(to bottom, #38bdf8 1px, transparent 1px)`,
           backgroundSize: '40px 40px'
         }}
       />
-      <div className="absolute -top-32 -left-32 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -top-32 -left-32 w-96 h-96 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* =========================================================================
-          1. TOPBAR MINIMALISTA
+          1. TOPBAR MINIMALISTA & CONTATO OFICIAL
           ========================================================================= */}
-      <header className="w-full border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-md px-6 py-2.5 z-20 shrink-0">
-        <div className="max-w-[1920px] mx-auto flex items-center justify-between">
-          {/* Logo & Razão Social */}
+      <header className="w-full border-b border-slate-800/80 bg-slate-950/85 backdrop-blur-md px-4 sm:px-6 py-2.5 z-20 shrink-0">
+        <div className="max-w-[1920px] mx-auto flex items-center justify-between gap-3">
+          {/* Logo Oficial Delta + Marca DeltaFix */}
           <div className="flex items-center gap-3">
-            <DeltaLogo size={34} />
-            <div className="flex items-center gap-2.5">
+            <DeltaLogo size={36} />
+            <div className="h-6 w-px bg-slate-800 hidden sm:block" />
+            <div className="flex items-center gap-2">
               <span className="font-black text-lg tracking-wider text-white">DELTA</span>
               <span className="font-black text-lg tracking-wider text-cyan-400">FIX</span>
-              <span className="hidden md:inline-block w-1 h-1 rounded-full bg-slate-600" />
-              <span className="hidden md:inline text-xs font-semibold text-slate-400 tracking-wide uppercase">
-                Parafusos & Fixadores Especiais
+              <span className="hidden lg:inline-block w-1 h-1 rounded-full bg-slate-600" />
+              <span className="hidden lg:inline text-xs font-semibold text-slate-400 tracking-wide uppercase">
+                Indústria de Parafusos & Fixadores Especiais
               </span>
             </div>
           </div>
 
-          {/* Badges de Qualidade & Status */}
-          <div className="flex items-center gap-4">
+          {/* Dados de Contato Delta & Certificações */}
+          <div className="flex items-center gap-3 sm:gap-4">
+            <a
+              href="tel:3133932466"
+              className="hidden xl:flex items-center gap-1.5 text-xs text-slate-300 hover:text-cyan-400 transition-colors"
+              title="Central Telefônica Delta Contagem"
+            >
+              <PhoneCall className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="font-mono font-semibold">(31) 3393-2466</span>
+            </a>
+
             <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/90 border border-slate-700/80 text-[11px] font-mono font-semibold text-slate-300">
               <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-              <span>ISO 9001:2015 CERTIFIED</span>
+              <span>ISO 9001 • ABNT</span>
             </div>
 
-            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/90 border border-emerald-500/30 text-[11px] font-mono">
+            <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-slate-900/90 border border-emerald-500/30 text-[11px] font-mono">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
               </span>
-              <span className="text-slate-400">Status:</span>
+              <span className="text-slate-400 hidden xs:inline">Sistema:</span>
               <span className="text-emerald-400 font-bold">Online</span>
             </div>
 
-            {/* Botão de Entrada Rápida / Demonstração */}
+            {/* Botão de Entrada Imediata */}
             <button
               type="button"
               onClick={loginAsDemo}
-              className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-cyan-500 to-sky-500 hover:from-cyan-400 hover:to-sky-400 text-slate-950 text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-cyan-950/80 active:scale-95 transition-all cursor-pointer"
+              className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-cyan-500 via-sky-500 to-teal-400 hover:from-cyan-400 hover:to-sky-400 text-slate-950 text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-cyan-950/80 active:scale-95 transition-all cursor-pointer"
               title="Acessar o ERP DeltaFix imediatamente"
             >
               <Sparkles className="w-3.5 h-3.5" />
@@ -242,103 +258,281 @@ export function LandingPage() {
       {/* =========================================================================
           2. CORPO PRINCIPAL - SPLIT SCREEN (55% / 45%)
           ========================================================================= */}
-      <section className="flex-1 w-full max-w-[1920px] mx-auto px-6 py-3 lg:py-4 flex flex-col lg:flex-row items-center justify-between gap-6 lg:gap-12 overflow-hidden z-10">
+      <section className="flex-1 w-full max-w-[1920px] mx-auto px-4 sm:px-6 py-2 sm:py-3 lg:py-4 flex flex-col lg:flex-row items-center justify-between gap-4 lg:gap-8 overflow-hidden z-10">
         {/* ---------------------------------------------------------------------
             LADO ESQUERDO: APRESENTAÇÃO INSTITUCIONAL & TECH (55%)
             --------------------------------------------------------------------- */}
-        <div className="w-full lg:w-[55%] flex flex-col justify-between h-full max-h-[82vh] pr-0 lg:pr-4">
-          {/* Tagline de Categoria */}
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded bg-cyan-950/80 border border-cyan-800 text-cyan-300 text-[11px] font-mono font-bold uppercase tracking-wider flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-cyan-400" />
-              Hub Tecnológico de Engenharia & Manufatura
+        <div className="w-full lg:w-[55%] flex flex-col justify-between h-full max-h-[82vh] pr-0 lg:pr-3">
+          {/* Badge & Navegação de Conteúdo Institucional (#sobre / Soluções / Setores) */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="px-2.5 py-0.5 rounded bg-red-950/80 border border-red-800 text-red-300 text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1">
+              <Award className="w-3 h-3 text-red-400" />
+              Delta Parafusos Especiais • Desde Contagem/MG
             </span>
+
+            {/* Abas Rápidas de Detalhamento Institucional */}
+            <div className="flex items-center gap-1 bg-slate-950/80 p-0.5 rounded-lg border border-slate-800 text-[11px]">
+              <button
+                type="button"
+                onClick={() => setInfoTab('solucoes')}
+                className={`px-2.5 py-1 rounded-md transition-all font-semibold ${
+                  infoTab === 'solucoes'
+                    ? 'bg-cyan-950 text-cyan-300 border border-cyan-800'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Soluções Tech
+              </button>
+              <button
+                type="button"
+                onClick={() => setInfoTab('sobre')}
+                className={`px-2.5 py-1 rounded-md transition-all font-semibold ${
+                  infoTab === 'sobre'
+                    ? 'bg-cyan-950 text-cyan-300 border border-cyan-800'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Nossa Empresa (#sobre)
+              </button>
+              <button
+                type="button"
+                onClick={() => setInfoTab('setores')}
+                className={`px-2.5 py-1 rounded-md transition-all font-semibold ${
+                  infoTab === 'setores'
+                    ? 'bg-cyan-950 text-cyan-300 border border-cyan-800'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Setores Atendidos
+              </button>
+              <button
+                type="button"
+                onClick={() => setInfoTab('qualidade')}
+                className={`px-2.5 py-1 rounded-md transition-all font-semibold ${
+                  infoTab === 'qualidade'
+                    ? 'bg-cyan-950 text-cyan-300 border border-cyan-800'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Ligas & Qualidade
+              </button>
+            </div>
           </div>
 
-          {/* Headline Forte */}
+          {/* CONTEÚDO CONDICIONAL DAS ABAS INSTITUCIONAIS */}
           <div className="my-auto py-2">
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-extrabold text-white leading-[1.15] tracking-tight">
-              ENGENHARIA DE FIXAÇÃO DE{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-300 to-amber-400">
-                ALTA PERFORMANCE
-              </span>{' '}
-              PARA OPERAÇÕES QUE NÃO PODEM PARAR.
-            </h1>
-            <p className="mt-3 text-slate-300 text-sm sm:text-base leading-relaxed max-w-2xl font-normal">
-              Parametrização dimensional exata, desenhos técnicos CAD normatizados e gestão integrada de suprimentos
-              para as maiores mineradoras, siderúrgicas e plantas industriais do Brasil.
-            </p>
+            {infoTab === 'solucoes' && (
+              <div>
+                <h1 className="text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-black text-white leading-[1.15] tracking-tight">
+                  ENGENHARIA DE FIXAÇÃO DE{' '}
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-cyan-300 to-amber-300">
+                    ALTA PERFORMANCE
+                  </span>{' '}
+                  PARA OPERAÇÕES CRÍTICAS.
+                </h1>
+                <p className="mt-2 text-slate-300 text-xs sm:text-sm leading-relaxed max-w-2xl font-normal">
+                  Cálculo paramétrico exato, catálogo com normas internacionais (DIN/ISO/ASTM) e suporte completo a
+                  peças especiais livres sob desenho técnico para as maiores plantas industriais do Brasil.
+                </p>
+
+                {/* 3 Pilares */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mt-3">
+                  <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-cyan-500/40 transition-colors">
+                    <div className="w-7 h-7 rounded-lg bg-cyan-950/90 border border-cyan-800/60 flex items-center justify-center text-cyan-400 mb-1.5">
+                      <Wrench className="w-3.5 h-3.5" />
+                    </div>
+                    <h3 className="text-xs font-bold text-slate-200 uppercase">Catálogo & Normas</h3>
+                    <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                      DIN, ISO e ASTM com cadastro livre de peças especiais sob amostra ou desenho.
+                    </p>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-sky-500/40 transition-colors">
+                    <div className="w-7 h-7 rounded-lg bg-sky-950/90 border border-sky-800/60 flex items-center justify-center text-sky-400 mb-1.5">
+                      <Compass className="w-3.5 h-3.5" />
+                    </div>
+                    <h3 className="text-xs font-bold text-slate-200 uppercase">Desenho CAD 2D A3</h3>
+                    <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                      Geração vetorial ISO 128 com cotagem de rosca, cabeça e sobremetal de serra.
+                    </p>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-red-500/40 transition-colors">
+                    <div className="w-7 h-7 rounded-lg bg-red-950/90 border border-red-800/60 flex items-center justify-center text-red-400 mb-1.5">
+                      <Factory className="w-3.5 h-3.5" />
+                    </div>
+                    <h3 className="text-xs font-bold text-slate-200 uppercase">Rastreabilidade MES</h3>
+                    <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                      Certificados 3.1, pontas pintadas por liga e roteiros fabris informatizados.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {infoTab === 'sobre' && (
+              <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2.5">
+                <div className="flex items-center gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="https://parafusosdelta.com.br/site/wp-content/uploads/2024/03/iconegrande-delta-1.png"
+                    alt="Delta Fixadores"
+                    className="w-12 h-12 object-contain"
+                  />
+                  <div>
+                    <span className="text-[10px] font-mono text-cyan-400 font-bold uppercase">
+                      Informações Oficiais de paratusosdelta.com.br
+                    </span>
+                    <h2 className="text-base font-black text-white">NOSSA EMPRESA</h2>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Atuando no segmento de fixadores, a <strong>Delta</strong> é uma empresa que produz grande variedade
+                  de parafusos especiais, nas mais diversas ligas e perfis de cabeça, obedecendo rigorosamente padrões
+                  internacionais. Todas as normas, desenhos ou amostras são rigorosamente respeitadas, numa total
+                  obediência ao documento do cliente.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-[11px] text-slate-300">
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-950 border border-slate-800">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Parque industrial moderno e informatizado em Contagem - MG</span>
+                  </div>
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-950 border border-slate-800">
+                    <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0" />
+                    <span>Ensaios mecânicos, metalográficos e análise química credenciada</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-1 text-[11px] text-slate-400">
+                  <span>📍 Av. Delta, 50 - Distrito Industrial - Contagem - MG</span>
+                  <a
+                    href="https://parafusosdelta.com.br/site/#sobre"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-cyan-400 hover:underline flex items-center gap-1 font-bold"
+                  >
+                    <span>Visitar site oficial</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              </div>
+            )}
+
+            {infoTab === 'setores' && (
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-mono text-cyan-400 font-bold uppercase">Aplicações Pesadas</span>
+                    <h2 className="text-base font-black text-white">SETORIZAÇÃO INDUSTRIAL</h2>
+                  </div>
+                  <span className="text-xs font-mono text-slate-400">Alto Torque & Carga</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-start gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-red-950/80 border border-red-800 flex items-center justify-center text-red-400 shrink-0">
+                      <Flame className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-white">Cimenteiro & Siderúrgico</h4>
+                      <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                        Fixadores para moinhos de bolas, fornos rotativos, carcaças de britadores e laminadores.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-start gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-amber-950/80 border border-amber-800 flex items-center justify-center text-amber-400 shrink-0">
+                      <Building2 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-white">Construção Civil & Estruturas</h4>
+                      <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                        Chumbadores estruturais, barras roscadas de ancoragem e parafusos estruturais ASTM A325.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-start gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-950/80 border border-emerald-800 flex items-center justify-center text-emerald-400 shrink-0">
+                      <Factory className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-white">Sucroalcooleiro & Mineração</h4>
+                      <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                        Parafusos especiais de desfibra, transportadores, britagem primária e flotação de minério.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-start gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-cyan-950/80 border border-cyan-800 flex items-center justify-center text-cyan-400 shrink-0">
+                      <Cpu className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-white">Petróleo, Gás & Energia</h4>
+                      <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                        Prisioneiros ASTM A193 B7/B7M/L7 com porcas pesadas 2H para flanges sob pressão extrema.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {infoTab === 'qualidade' && (
+              <div className="p-3 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-mono text-cyan-400 font-bold uppercase">Metalurgia Delta</span>
+                    <h2 className="text-base font-black text-white">LIGAS ESPECIAIS & TRATAMENTOS</h2>
+                  </div>
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-[10px] font-mono text-amber-300">
+                    <ShieldCheck className="w-3 h-3" />
+                    ISO 9001:2015
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
+                  <div className="p-2 rounded-lg bg-slate-950 border border-slate-800">
+                    <div className="font-mono font-bold text-cyan-400">SAE 4140 / 4340</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">Aço Liga Têmpera</div>
+                  </div>
+                  <div className="p-2 rounded-lg bg-slate-950 border border-slate-800">
+                    <div className="font-mono font-bold text-emerald-400">A193 B7 / B7M</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">Alta Temperatura</div>
+                  </div>
+                  <div className="p-2 rounded-lg bg-slate-950 border border-slate-800">
+                    <div className="font-mono font-bold text-amber-400">INOX 304 / 316</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">Anti-corrosão A2/A4</div>
+                  </div>
+                  <div className="p-2 rounded-lg bg-slate-950 border border-slate-800">
+                    <div className="font-mono font-bold text-rose-400">CLASSES 8.8 / 12.9</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">Grau 5, Grau 8</div>
+                  </div>
+                </div>
+
+                <div className="p-2 rounded-lg bg-slate-950/70 border border-slate-800 text-[11px] text-slate-300 flex items-center justify-between">
+                  <span>Tratamentos: Zincado Eletrolítico, Galvanizado a Fogo (GF), Geomet e Fosfatizado.</span>
+                  <span className="font-mono text-cyan-400 font-bold text-[10px]">Certificado 3.1</span>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Pilares de Valor (Grid Rápido 3 Ícones) */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 my-2">
-            {/* Pilar 1 */}
-            <div className="p-3 rounded-xl bg-slate-900/70 border border-slate-800/90 hover:border-cyan-500/40 transition-colors group">
-              <div className="w-8 h-8 rounded-lg bg-cyan-950/90 border border-cyan-800/60 flex items-center justify-center text-cyan-400 mb-2 group-hover:scale-105 transition-transform">
-                <Wrench className="w-4 h-4" />
-              </div>
-              <h2 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
-                Normas DIN/ISO/ASTM
-              </h2>
-              <p className="text-[11px] text-slate-400 mt-1 leading-snug">
-                Matriz paramétrica completa com auto-dimensionamento de bitolas, passos e tolerâncias.
-              </p>
-            </div>
-
-            {/* Pilar 2 */}
-            <div className="p-3 rounded-xl bg-slate-900/70 border border-slate-800/90 hover:border-sky-500/40 transition-colors group">
-              <div className="w-8 h-8 rounded-lg bg-sky-950/90 border border-sky-800/60 flex items-center justify-center text-sky-400 mb-2 group-hover:scale-105 transition-transform">
-                <Compass className="w-4 h-4" />
-              </div>
-              <h2 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
-                Desenho CAD 2D & 3D
-              </h2>
-              <p className="text-[11px] text-slate-400 mt-1 leading-snug">
-                Geração instantânea de pranchas A3/A4 em formato ISO 128, vista isométrica e PDF oficial.
-              </p>
-            </div>
-
-            {/* Pilar 3 */}
-            <div className="p-3 rounded-xl bg-slate-900/70 border border-slate-800/90 hover:border-amber-500/40 transition-colors group">
-              <div className="w-8 h-8 rounded-lg bg-amber-950/90 border border-amber-800/60 flex items-center justify-center text-amber-400 mb-2 group-hover:scale-105 transition-transform">
-                <Factory className="w-4 h-4" />
-              </div>
-              <h2 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
-                Rastreabilidade Total
-              </h2>
-              <p className="text-[11px] text-slate-400 mt-1 leading-snug">
-                Certificados de qualidade 3.1 por lote, controle de corrida de aço e roteamento MES fabril.
-              </p>
-            </div>
-          </div>
-
-          {/* Indicadores Industriais (KPIs em destaque) */}
-          <div className="flex flex-wrap items-center gap-4 sm:gap-8 pt-3 border-t border-slate-800/80">
+          {/* Indicadores Industriais (KPIs em destaque no rodapé do lado esquerdo) */}
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6 pt-2.5 border-t border-slate-800/80">
             <div>
-              <div className="text-xl sm:text-2xl font-black text-amber-400 font-mono tracking-tight">
-                +35 Anos
-              </div>
-              <div className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
-                Tradição & Expertise Fabril
-              </div>
+              <div className="text-lg sm:text-xl font-black text-amber-400 font-mono tracking-tight">+35 Anos</div>
+              <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Tradição & Expertise</div>
             </div>
-            <div className="h-8 w-px bg-slate-800 hidden sm:block" />
+            <div className="h-6 w-px bg-slate-800 hidden sm:block" />
             <div>
-              <div className="text-xl sm:text-2xl font-black text-cyan-400 font-mono tracking-tight">
-                100%
-              </div>
-              <div className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
-                Rastreabilidade por Corrida
-              </div>
+              <div className="text-lg sm:text-xl font-black text-cyan-400 font-mono tracking-tight">100%</div>
+              <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Rastreabilidade Lote</div>
             </div>
-            <div className="h-8 w-px bg-slate-800 hidden sm:block" />
+            <div className="h-6 w-px bg-slate-800 hidden sm:block" />
             <div>
-              <div className="text-xl sm:text-2xl font-black text-slate-100 font-mono tracking-tight">
-                ISO 9001
-              </div>
-              <div className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
-                Gestão da Qualidade Assegurada
-              </div>
+              <div className="text-lg sm:text-xl font-black text-white font-mono tracking-tight">ISO 9001</div>
+              <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Gestão Assegurada</div>
             </div>
           </div>
         </div>
@@ -347,17 +541,17 @@ export function LandingPage() {
             LADO DIREITO: CARD DE ACESSO AO SISTEMA (45%)
             --------------------------------------------------------------------- */}
         <div className="w-full lg:w-[45%] flex items-center justify-center">
-          <div className="w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-2xl shadow-2xl backdrop-blur-xl p-5 sm:p-6 relative overflow-hidden">
+          <div className="w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-2xl shadow-2xl backdrop-blur-xl p-4 sm:p-5 relative overflow-hidden">
             {/* Linha decorativa de topo */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-cyan-500 via-sky-400 to-amber-500" />
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-red-600 via-cyan-400 to-amber-500" />
 
             {/* Cabeçalho do Card */}
-            <div className="mb-4 text-center sm:text-left">
+            <div className="mb-3 text-center sm:text-left">
               <span className="text-[10px] font-mono uppercase tracking-widest text-cyan-400 font-bold">
                 DeltaFix Core Enterprise
               </span>
-              <h2 className="text-lg font-black text-white tracking-wide mt-0.5">
-                PORTAL DELTAFIX INDUSTRIAL
+              <h2 className="text-base sm:text-lg font-black text-white tracking-wide mt-0.5">
+                PORTAL DELTA INDUSTRIAL
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
                 Selecione como deseja acessar o ambiente:
@@ -365,7 +559,7 @@ export function LandingPage() {
             </div>
 
             {/* Tabs de Seleção: [ ENTRAR ] / [ NOVO CADASTRO ] */}
-            <div className="grid grid-cols-2 p-1 bg-slate-950/80 rounded-xl border border-slate-800 mb-4">
+            <div className="grid grid-cols-2 p-1 bg-slate-950/80 rounded-xl border border-slate-800 mb-3">
               <button
                 type="button"
                 onClick={() => {
@@ -463,7 +657,7 @@ export function LandingPage() {
                 <button
                   type="submit"
                   disabled={loginLoading}
-                  className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-600 via-sky-600 to-cyan-500 hover:from-cyan-500 hover:to-sky-500 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-cyan-950/80 hover:shadow-cyan-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-2 disabled:opacity-50"
+                  className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-600 via-sky-600 to-cyan-500 hover:from-cyan-500 hover:to-sky-500 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-cyan-950/80 hover:shadow-cyan-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-1 disabled:opacity-50"
                 >
                   {loginLoading ? (
                     <>
@@ -503,13 +697,13 @@ export function LandingPage() {
                   </button>
 
                   <a
-                    href="https://api.whatsapp.com/send?phone=553133528000&text=Ola%2C%20gostaria%20de%20ajuda%20comercial%20no%20DeltaFix"
+                    href="https://parafusosdelta.com.br/site/#sobre"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-[10px] text-slate-400 hover:text-cyan-400 flex items-center gap-1"
                   >
-                    <PhoneCall className="w-3 h-3 text-cyan-400" />
-                    Ajuda Comercial
+                    <ExternalLink className="w-3 h-3 text-cyan-400" />
+                    Sobre a Delta
                   </a>
                 </div>
               </form>
@@ -517,7 +711,7 @@ export function LandingPage() {
 
             {/* TAB 2: FORMULÁRIO NOVO CADASTRO */}
             {activeTab === 'register' && (
-              <form onSubmit={handleRegisterSubmit} className="space-y-2.5 max-h-[58vh] overflow-y-auto pr-1">
+              <form onSubmit={handleRegisterSubmit} className="space-y-2.5 max-h-[56vh] overflow-y-auto pr-1">
                 {regError && (
                   <div className="p-2 rounded-lg bg-red-950/60 border border-red-800 text-red-300 text-xs flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
@@ -706,21 +900,21 @@ export function LandingPage() {
       {/* =========================================================================
           3. RODAPÉ INSTITUCIONAL ZERO SCROLL
           ========================================================================= */}
-      <footer className="w-full border-t border-slate-800/80 bg-slate-950/70 backdrop-blur-md px-6 py-2 z-20 shrink-0">
+      <footer className="w-full border-t border-slate-800/80 bg-slate-950/85 backdrop-blur-md px-4 sm:px-6 py-2 z-20 shrink-0">
         <div className="max-w-[1920px] mx-auto flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-400 gap-2">
           <div className="flex items-center gap-2">
-            <MapPin className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-            <span>Contagem - MG • Parque Industrial Metropolitano • Brasil</span>
+            <MapPin className="w-3.5 h-3.5 text-red-500 shrink-0" />
+            <span>Av. Delta, 50 - Distrito Industrial • Contagem - MG • Brasil</span>
           </div>
 
           <div className="flex items-center gap-4">
             <span className="text-slate-500">DeltaFix Core Engine & CAD Parametric • v1.2</span>
             <span className="hidden md:inline text-slate-600">|</span>
             <a
-              href="mailto:suporte@parafusosdelta.com.br"
-              className="text-cyan-400 hover:underline flex items-center gap-1"
+              href="mailto:deltaparafusos@parafusosdelta.com.br"
+              className="text-cyan-400 hover:underline flex items-center gap-1 font-mono"
             >
-              Suporte Técnico & Comercial
+              deltaparafusos@parafusosdelta.com.br
             </a>
           </div>
         </div>

@@ -541,14 +541,14 @@ export function EngineeringConfigurator({
 
   // Load a Saved Product into the Configurator
   const handleLoadFromHistory = (prod: ProductItem) => {
-    setFamily(prod.family);
+    setFamily(prod.family as any);
     setStandardCode(prod.standard_code);
     setBitola(prod.bitola);
     if (prod.comprimento) setComprimento(prod.comprimento);
     if (prod.sobremetal_corte !== undefined) setSobremetalCorte(prod.sobremetal_corte);
-    setClasseResistencia(prod.classe_resistencia);
-    setMaterialBase(prod.material_base);
-    setTratamentoSuperficial(prod.tratamento_superficial);
+    setClasseResistencia(prod.classe_resistencia as any);
+    setMaterialBase(prod.material_base as any);
+    setTratamentoSuperficial(prod.tratamento_superficial as any);
     if (prod.codigo_interno_delta) setCodigoInternoDelta(prod.codigo_interno_delta);
     if (prod.is_custom_special) {
       setIsCustomSpecial(true);

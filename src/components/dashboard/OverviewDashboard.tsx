@@ -65,11 +65,19 @@ export function OverviewDashboard({ onNavigate }: OverviewDashboardProps) {
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
+            onClick={() => onNavigate('catalogo_produtos')}
+            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-md shadow-emerald-950/60 active:scale-95 transition-all cursor-pointer"
+          >
+            <Boxes className="w-3.5 h-3.5" />
+            <span>📋 Catálogo & Cadastro Livre</span>
+          </button>
+          <button
+            type="button"
             onClick={() => onNavigate('pedidos')}
             className="px-3 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-md shadow-cyan-950/60 active:scale-95 transition-all"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>+ Nova Cotação / Pedido</span>
+            <span>+ Nova Cotação</span>
           </button>
           <button
             type="button"
@@ -77,7 +85,7 @@ export function OverviewDashboard({ onNavigate }: OverviewDashboardProps) {
             className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center gap-1.5 border border-slate-700 active:scale-95 transition-all"
           >
             <Compass className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Configurador CAD</span>
+            <span>Configurador Normas</span>
           </button>
           <button
             type="button"
@@ -277,6 +285,22 @@ export function OverviewDashboard({ onNavigate }: OverviewDashboardProps) {
           </h2>
 
           <div className="space-y-2.5">
+            <button
+              type="button"
+              onClick={() => onNavigate('catalogo_produtos')}
+              className="w-full p-3 rounded-xl bg-slate-950/80 border border-slate-800 hover:border-emerald-600/50 text-left transition-all group"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-200 group-hover:text-emerald-400">
+                  📋 Catálogo Geral & Cadastro Livre
+                </span>
+                <ArrowRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-emerald-400 group-hover:translate-x-1 transition-all" />
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Visualização em cards/tabela de todos os produtos e cadastro livre de peças especiais sem norma.
+              </p>
+            </button>
+
             <button
               type="button"
               onClick={() => onNavigate('produtos')}
