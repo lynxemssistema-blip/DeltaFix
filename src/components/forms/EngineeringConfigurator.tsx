@@ -52,6 +52,7 @@ import {
 
 interface EngineeringConfiguratorProps {
   initialProducts?: ProductItem[];
+  defaultSubTab?: 'configurador' | 'normas' | 'desenho' | 'bom' | 'routing';
 }
 
 interface CustomBOMItem {
@@ -73,11 +74,14 @@ interface CustomRoutingItem {
   desc: string;
 }
 
-export function EngineeringConfigurator({ initialProducts = [] }: EngineeringConfiguratorProps) {
+export function EngineeringConfigurator({
+  initialProducts = [],
+  defaultSubTab
+}: EngineeringConfiguratorProps) {
   // 1. Dynamic Standards Catalog State (Supabase + DIN defaults)
   const [allStandards, setAllStandards] = useState<EngineeringStandard[]>(DIN_STANDARDS);
   const [dimensionsCatalog, setDimensionsCatalog] = useState<Record<string, Record<string, StandardDimension>>>(DIMENSIONS_MAP);
-  const [isNewStandardModalOpen, setIsNewStandardModalOpen] = useState(false);
+  const [isNewStandardModalOpen, setIsNewStandardModalOpen] = useState(defaultSubTab === 'normas');
 
   // 2. Core Configurator State
   const [family, setFamily] = useState<StandardFamily>('parafuso');
@@ -105,7 +109,11 @@ export function EngineeringConfigurator({ initialProducts = [] }: EngineeringCon
   const [anexoArquivoUrl, setAnexoArquivoUrl] = useState<string>('');
 
   // 4. Active Tab State & Layout Controls
-  const [activeTab, setActiveTab] = useState<'cad' | 'bom' | 'routing' | 'ai' | 'history'>('cad');
+  const [activeTab, setActiveTab] = useState<'cad' | 'bom' | 'routing' | 'ai' | 'history'>(() => {
+    if (defaultSubTab === 'bom') return 'bom';
+    if (defaultSubTab === 'routing') return 'routing';
+    return 'cad';
+  });
   const [cadMode, setCadMode] = useState<'nanquim_a3' | 'blueprint'>('nanquim_a3');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [showKpis, setShowKpis] = useState(true);
