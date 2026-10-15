@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import { DeltaLogo } from '@/components/ui/DeltaLogo';
 import { supabase } from '@/lib/supabase/client';
 import { addApprovalRequest } from '@/lib/services/commercialService';
+import { formatCpfCnpj, getDocumentType } from '@/lib/utils/formatters';
 import {
   Wrench,
   Compass,
@@ -522,48 +523,63 @@ export function LandingPage() {
                   />
                 </div>
 
-                {/* CNPJ com Consulta Automática */}
+                {/* CNPJ ou CPF com Consulta Automática e Máscara Dinâmica */}
                 <div>
-                  <label className="block text-[10px] font-mono text-slate-300 font-bold uppercase mb-0.5">
-                    CNPJ da Empresa:
-                  </label>
+                  <div className="flex items-center justify-between mb-0.5">
+                    <label className="block text-[10px] font-mono text-slate-300 font-bold uppercase">
+                      CPF ou CNPJ:
+                    </label>
+                    <span className="text-[9px] font-mono text-cyan-400 font-bold">
+                      {getDocumentType(regCnpj) === 'CPF'
+                        ? '👤 Pessoa Física (CPF)'
+                        : getDocumentType(regCnpj) === 'CNPJ'
+                        ? '🏢 Pessoa Jurídica (CNPJ)'
+                        : 'Formatando...'}
+                    </span>
+                  </div>
                   <div className="flex gap-1.5">
                     <input
                       type="text"
                       required
                       value={regCnpj}
-                      onChange={(e) => setRegCnpj(e.target.value)}
-                      placeholder="00.000.000/0000-00"
+                      onChange={(e) => setRegCnpj(formatCpfCnpj(e.target.value))}
+                      placeholder="000.000.000-00 ou 00.000.000/0000-00"
                       className="flex-1 bg-slate-950 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs font-mono text-slate-100 placeholder-slate-600 focus:outline-none focus:border-cyan-500"
                     />
-                    <button
-                      type="button"
-                      onClick={handleConsultCnpj}
-                      disabled={cnpjSearching}
-                      className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-cyan-400 text-[10px] font-bold rounded-lg flex items-center gap-1 transition-all disabled:opacity-50"
-                      title="Consultar dados da empresa na Receita Federal"
-                    >
-                      {cnpjSearching ? (
-                        <div className="w-3 h-3 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <Search className="w-3 h-3" />
-                      )}
-                      <span>Buscar</span>
-                    </button>
+                    {regCnpj.replace(/\D/g, '').length === 14 && (
+                      <button
+                        type="button"
+                        onClick={handleConsultCnpj}
+                        disabled={cnpjSearching}
+                        className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-cyan-400 text-[10px] font-bold rounded-lg flex items-center gap-1 transition-all disabled:opacity-50 shrink-0"
+                        title="Consultar dados da empresa na Receita Federal"
+                      >
+                        {cnpjSearching ? (
+                          <div className="w-3 h-3 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Search className="w-3 h-3" />
+                        )}
+                        <span>Buscar Receita</span>
+                      </button>
+                    )}
                   </div>
                 </div>
 
-                {/* Razão Social */}
+                {/* Razão Social ou Nome do Cliente */}
                 <div>
                   <label className="block text-[10px] font-mono text-slate-300 font-bold uppercase mb-0.5">
-                    Razão Social da Empresa:
+                    {getDocumentType(regCnpj) === 'CPF' ? 'Nome do Cliente / Comprador:' : 'Razão Social da Empresa:'}
                   </label>
                   <input
                     type="text"
                     required
                     value={regCompanyName}
                     onChange={(e) => setRegCompanyName(e.target.value)}
-                    placeholder="Nome oficial da empresa ou indústria"
+                    placeholder={
+                      getDocumentType(regCnpj) === 'CPF'
+                        ? 'Nome completo da pessoa física'
+                        : 'Nome oficial da empresa ou indústria'
+                    }
                     className="w-full bg-slate-950 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-cyan-500"
                   />
                 </div>

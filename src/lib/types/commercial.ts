@@ -14,10 +14,15 @@ export type SegmentoIndustrial =
 
 export interface CompanyPartner {
   id: string;
-  cnpj: string;
-  razao_social: string;
+  tipo_pessoa?: 'PJ' | 'PF';
+  cnpj: string; // Guarda CPF ou CNPJ formatado
+  documento?: string;
+  rg?: string;
+  razao_social: string; // Razão Social (PJ) ou Nome Completo (PF)
   nome_fantasia?: string;
   inscricao_estadual?: string;
+  logo_url?: string; // URL ou Data URL do Logotipo/Foto
+  instagram?: string; // Ex: @parafusosdelta ou link do perfil
   is_cliente: boolean;
   is_fornecedor: boolean;
   segmento: SegmentoIndustrial;
@@ -117,5 +122,22 @@ export interface UserApprovalRequest {
   data_solicitacao: string;
   data_decisao?: string;
   decidido_por?: string;
+  observacoes?: string;
+}
+
+export interface RawMaterialItem {
+  id: string;
+  codigo: string; // Ex: 'MP-01', 'ACO-1020'
+  tipo_material: 'Barra de aço redonda' | 'Barra sextavada' | 'Barra chata' | 'Tubo mecânico' | 'Outro';
+  especificacao_aco: string; // Ex: 'SAE 1020', 'SAE 1045', 'SAE 4340', 'SAE 8640', 'SAE 8220', 'SAE 4140', 'AISI 304', 'AISI 310', 'AISI 320', 'AISI 316', 'AISI 420', 'AISI 321'
+  cor_primaria_nome: string;
+  cor_primaria_hex: string;
+  is_bicolor: boolean;
+  cor_secundaria_nome?: string;
+  cor_secundaria_hex?: string;
+  diametros_disponiveis?: string[];
+  comprimento_padrao_mm: number; // 6000
+  densidade_g_cm3: number; // 7.85
+  fornecedor_homologado?: string;
   observacoes?: string;
 }

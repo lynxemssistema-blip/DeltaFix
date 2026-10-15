@@ -17,7 +17,9 @@ import {
   Mail,
   ShieldCheck,
   Building2,
-  FileCheck
+  FileCheck,
+  LayoutGrid,
+  Table as TableIcon
 } from 'lucide-react';
 
 interface MultiCompanyManagementProps {
@@ -30,6 +32,7 @@ export function MultiCompanyManagement({
   onSelectOrg
 }: MultiCompanyManagementProps) {
   const [organizations, setOrganizations] = useState<OrganizationEntity[]>([]);
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOrg, setEditingOrg] = useState<OrganizationEntity | null>(null);
 
@@ -119,18 +122,49 @@ export function MultiCompanyManagement({
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={handleOpenNew}
-          className="px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-cyan-950/60 active:scale-95 transition-all"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Cadastrar Nova Unidade / Filial</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* View Mode Toggle */}
+          <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
+            <button
+              type="button"
+              onClick={() => setViewMode('cards')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                viewMode === 'cards'
+                  ? 'bg-cyan-950 text-cyan-300 border border-cyan-700 shadow-md'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>Cards</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                viewMode === 'table'
+                  ? 'bg-cyan-950 text-cyan-300 border border-cyan-700 shadow-md'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <TableIcon className="w-3.5 h-3.5" />
+              <span>Tabela</span>
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleOpenNew}
+            className="px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-cyan-950/60 active:scale-95 transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Cadastrar Nova Unidade / Filial</span>
+          </button>
+        </div>
       </div>
 
-      {/* Grid de Unidades */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {/* Grid ou Tabela de Unidades */}
+      {viewMode === 'cards' ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {organizations.map((org) => {
           const isSelected = org.id === currentOrgId;
 
@@ -232,6 +266,114 @@ export function MultiCompanyManagement({
           );
         })}
       </div>
+      ) : (
+        /* VISUALIZAÇÃO EM TABELA DE UNIDADES MULTI-EMPRESA */
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-300">
+              <thead className="bg-slate-950 text-[10px] font-mono uppercase text-slate-400 border-b border-slate-800 sticky top-0">
+                <tr>
+                  <th className="py-3 px-4">Código / Tipo</th>
+                  <th className="py-3 px-4">Nome da Unidade</th>
+                  <th className="py-3 px-4">CNPJ & IE</th>
+                  <th className="py-3 px-4">Cidade / UF</th>
+                  <th className="py-3 px-4">Endereço</th>
+                  <th className="py-3 px-4">Contato Fiscal</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/80 font-sans">
+                {organizations.map((org) => {
+                  const isSelected = org.id === currentOrgId;
+
+                  return (
+                    <tr key={org.id} className="hover:bg-slate-800/40 transition-colors">
+                      {/* Código & Tipo */}
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <span className="font-mono font-bold text-white block">{org.codigo}</span>
+                        <span
+                          className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-bold uppercase border ${
+                            org.tipo === 'matriz'
+                              ? 'bg-amber-950 text-amber-300 border-amber-800'
+                              : 'bg-cyan-950 text-cyan-300 border-cyan-800'
+                          }`}
+                        >
+                          {org.tipo}
+                        </span>
+                      </td>
+
+                      {/* Nome */}
+                      <td className="py-3 px-4 font-bold text-white">
+                        {org.nome}
+                      </td>
+
+                      {/* CNPJ & IE */}
+                      <td className="py-3 px-4 font-mono whitespace-nowrap">
+                        <span className="text-slate-200 font-bold block">{org.cnpj}</span>
+                        <span className="text-[10px] text-slate-500">IE: {org.inscricao_estadual}</span>
+                      </td>
+
+                      {/* Cidade / UF */}
+                      <td className="py-3 px-4 text-cyan-400 font-medium whitespace-nowrap">
+                        {org.cidade} - {org.uf}
+                      </td>
+
+                      {/* Endereço */}
+                      <td className="py-3 px-4 text-slate-400 max-w-xs truncate">
+                        {org.endereco_completo}
+                      </td>
+
+                      {/* Contato Fiscal */}
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <div className="text-slate-300">{org.telefone}</div>
+                        <div className="text-[10px] text-slate-500 font-mono">{org.email_fiscal}</div>
+                      </td>
+
+                      {/* Status */}
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        {isSelected ? (
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-emerald-950 text-emerald-300 border border-emerald-800 inline-flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> ATIVA
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-500">Disponível</span>
+                        )}
+                      </td>
+
+                      {/* Ações */}
+                      <td className="py-3 px-4 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => onSelectOrg(org.id)}
+                            disabled={isSelected}
+                            className={`px-2 py-1 rounded text-[11px] font-bold transition-all ${
+                              isSelected
+                                ? 'bg-slate-800 text-slate-500 cursor-default'
+                                : 'bg-cyan-950 text-cyan-300 border border-cyan-800 hover:bg-cyan-900'
+                            }`}
+                          >
+                            {isSelected ? 'Selecionada' : 'Alternar'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(org)}
+                            className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-cyan-400"
+                            title="Editar unidade"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Modal Nova / Editar Unidade */}
       {isModalOpen && (

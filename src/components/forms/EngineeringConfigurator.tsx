@@ -19,6 +19,7 @@ import { TechnicalDrawingSheet } from '@/components/cad/TechnicalDrawingSheet';
 import { IndustrialCopilot } from '@/components/ai/IndustrialCopilot';
 import { NewStandardModal } from '@/components/forms/NewStandardModal';
 import { generateTechnicalDatasheetPdf } from '@/lib/export/pdf-generator';
+import { SteelColorBadge, getSteelColorBySpec } from '@/components/ui/SteelColorBadge';
 import {
   Cpu,
   Layers,
@@ -1109,20 +1110,34 @@ export function EngineeringConfigurator({
               </div>
 
               <div>
-                <label className="text-xs font-mono text-slate-400 uppercase font-semibold block mb-1.5">
-                  Material Base
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-mono text-slate-400 uppercase font-semibold">
+                    Material Base
+                  </label>
+                  {getSteelColorBySpec(materialBase) && (
+                    <span className="flex items-center gap-1.5 text-[10px] font-mono text-slate-300 bg-slate-950 border border-slate-800 px-2 py-0.5 rounded-full">
+                      <SteelColorBadge
+                        corPrimariaHex={getSteelColorBySpec(materialBase)!.corPrimariaHex}
+                        isBicolor={getSteelColorBySpec(materialBase)!.isBicolor}
+                        corSecundariaHex={getSteelColorBySpec(materialBase)!.corSecundariaHex}
+                        size={12}
+                      />
+                      <span className="text-slate-400 font-bold">Ponta:</span>
+                      <span className="text-white font-extrabold">{getSteelColorBySpec(materialBase)!.label}</span>
+                    </span>
+                  )}
+                </div>
                 <select
                   value={materialBase}
                   onChange={(e) => setMaterialBase(e.target.value as BaseMaterial)}
                   className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs font-semibold text-slate-200 focus:outline-none focus:border-cyan-500"
                 >
-                  <option value="Aço Médio Carbono SAE 1045">SAE 1045 (Médio Carbono)</option>
-                  <option value="Aço Carbono SAE 1010/1020">SAE 1010/1020 (Baixo Carbono)</option>
-                  <option value="Aço Liga SAE 4140">SAE 4140 (Cr-Mo Tratado)</option>
-                  <option value="Aço Liga SAE 4340">SAE 4340 (Ni-Cr-Mo)</option>
-                  <option value="Aço Inoxidável AISI 304 (A2)">Inox AISI 304 (A2)</option>
-                  <option value="Aço Inoxidável AISI 316 (A4)">Inox AISI 316 (A4)</option>
+                  <option value="Aço Médio Carbono SAE 1045">SAE 1045 (Médio Carbono • Vermelho)</option>
+                  <option value="Aço Carbono SAE 1010/1020">SAE 1010/1020 (Baixo Carbono • Branco)</option>
+                  <option value="Aço Liga SAE 4140">SAE 4140 (Cr-Mo Tratado • Verde Escuro)</option>
+                  <option value="Aço Liga SAE 4340">SAE 4340 (Ni-Cr-Mo • Verde/Vermelho)</option>
+                  <option value="Aço Inoxidável AISI 304 (A2)">Inox AISI 304 (A2 • Amarelo)</option>
+                  <option value="Aço Inoxidável AISI 316 (A4)">Inox AISI 316 (A4 • Vermelho Carmesim)</option>
                   <option value="Latão CLA 360">Latão CLA 360</option>
                 </select>
               </div>
@@ -1421,7 +1436,20 @@ export function EngineeringConfigurator({
                   <tbody className="divide-y divide-slate-800/60 text-slate-200">
                     {customBOM.map((item) => (
                       <tr key={item.id} className="hover:bg-slate-800/40">
-                        <td className="py-3 px-3 font-semibold text-cyan-300">{item.description}</td>
+                        <td className="py-3 px-3 font-semibold text-cyan-300">
+                          <div className="flex items-center gap-2">
+                            {getSteelColorBySpec(item.description) && (
+                              <SteelColorBadge
+                                corPrimariaHex={getSteelColorBySpec(item.description)!.corPrimariaHex}
+                                isBicolor={getSteelColorBySpec(item.description)!.isBicolor}
+                                corSecundariaHex={getSteelColorBySpec(item.description)!.corSecundariaHex}
+                                size={14}
+                                title={`Código de Cor da Barra: ${getSteelColorBySpec(item.description)!.label}`}
+                              />
+                            )}
+                            <span>{item.description}</span>
+                          </div>
+                        </td>
                         <td className="py-3 px-3 text-slate-400 capitalize">{item.item_type.replace('_', ' ')}</td>
                         <td className="py-3 px-3 font-bold text-emerald-400">{item.consumption}</td>
                         <td className="py-3 px-3 text-slate-300">{item.unit}</td>

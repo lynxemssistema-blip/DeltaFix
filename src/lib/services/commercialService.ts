@@ -3,7 +3,8 @@ import {
   CompanyPartner,
   SalesOrderQuote,
   OrganizationEntity,
-  UserApprovalRequest
+  UserApprovalRequest,
+  RawMaterialItem
 } from '../types/commercial';
 
 // Dados iniciais padrão de empresas parceiras industriais
@@ -562,4 +563,224 @@ export function decideApprovalRequest(
     localStorage.setItem('deltafix_user_approvals', JSON.stringify(updated));
   }
   return updated;
+}
+
+// =========================================================================
+// CODIFICAÇÃO OFICIAL DE AÇO & MATÉRIAS-PRIMAS (PONTAS PINTADAS DA FÁBRICA)
+// Conforme placa de identificação física do almoxarifado de barras
+// =========================================================================
+export const DEFAULT_RAW_MATERIALS: RawMaterialItem[] = [
+  {
+    id: 'mat-01',
+    codigo: 'ACO-1020',
+    tipo_material: 'Barra de aço redonda',
+    especificacao_aco: 'SAE 1020',
+    cor_primaria_nome: 'Branco',
+    cor_primaria_hex: '#ffffff',
+    is_bicolor: false,
+    diametros_disponiveis: ['1/4"', '5/16"', '3/8"', '1/2"', '5/8"', '3/4"', '7/8"', '1"'],
+    comprimento_padrao_mm: 6000,
+    densidade_g_cm3: 7.85,
+    fornecedor_homologado: 'Gerdau Usina Ouro Branco',
+    observacoes: 'Aço baixo carbono para fixadores de classe 4.6 / 4.8 e peças estruturais leves.'
+  },
+  {
+    id: 'mat-02',
+    codigo: 'ACO-1045',
+    tipo_material: 'Barra de aço redonda',
+    especificacao_aco: 'SAE 1045',
+    cor_primaria_nome: 'Vermelho',
+    cor_primaria_hex: '#dc2626',
+    is_bicolor: false,
+    diametros_disponiveis: ['3/8"', '1/2"', '5/8"', '3/4"', '7/8"', '1"', '1.1/4"', '1.1/2"'],
+    comprimento_padrao_mm: 6000,
+    densidade_g_cm3: 7.85,
+    fornecedor_homologado: 'Gerdau Usina Ouro Branco',
+    observacoes: 'Aço médio carbono para parafusos temperados e revenidos classe 8.8.'
+  },
+  {
+    id: 'mat-03',
+    codigo: 'ACO-4340',
+    tipo_material: 'Barra de aço redonda',
+    especificacao_aco: 'SAE 4340',
+    cor_primaria_nome: 'Verde',
+    cor_primaria_hex: '#16a34a',
+    is_bicolor: true,
+    cor_secundaria_nome: 'Vermelho',
+    cor_secundaria_hex: '#dc2626',
+    diametros_disponiveis: ['1/2"', '5/8"', '3/4"', '1"', '1.1/4"', '1.1/2"', '2"', '2.1/2"'],
+    comprimento_padrao_mm: 6000,
+    densidade_g_cm3: 7.85,
+    fornecedor_homologado: 'Açotécnica / Villares Metals',
+    observacoes: 'Aço liga Ni-Cr-Mo de altíssima tenacidade para fixadores severos classe 12.9 e setor eólico.'
+  },
+  {
+    id: 'mat-04',
+    codigo: 'ACO-8640',
+    tipo_material: 'Barra de aço redonda',
+    especificacao_aco: 'SAE 8640',
+    cor_primaria_nome: 'Laranja',
+    cor_primaria_hex: '#ea580c',
+    is_bicolor: true,
+    cor_secundaria_nome: 'Vermelho',
+    cor_secundaria_hex: '#dc2626',
+    diametros_disponiveis: ['1/2"', '5/8"', '3/4"', '7/8"', '1"', '1.1/4"'],
+    comprimento_padrao_mm: 6000,
+    densidade_g_cm3: 7.85,
+    fornecedor_homologado: 'Gerdau Usina Ouro Branco',
+    observacoes: 'Aço liga de médio teor para parafusos de cabeça forjada e alta resistência.'
+  },
+  {
+    id: 'mat-05',
+    codigo: 'ACO-8220',
+    tipo_material: 'Barra de aço redonda',
+    especificacao_aco: 'SAE 8220',
+    cor_primaria_nome: 'Azul',
+    cor_primaria_hex: '#2563eb',
+    is_bicolor: true,
+    cor_secundaria_nome: 'Amarelo',
+    cor_secundaria_hex: '#eab308',
+    diametros_disponiveis: ['3/8"', '1/2"', '5/8"', '3/4"', '1"'],
+    comprimento_padrao_mm: 6000,
+    densidade_g_cm3: 7.85,
+    fornecedor_homologado: 'Villares Metals',
+    observacoes: 'Aço para cementação com núcleo dúctil e superfície de altíssima dureza.'
+  },
+  {
+    id: 'mat-06',
+    codigo: 'ACO-4140',
+    tipo_material: 'Barra de aço redonda',
+    especificacao_aco: 'SAE 4140',
+    cor_primaria_nome: 'Verde Escuro',
+    cor_primaria_hex: '#14532d',
+    is_bicolor: false,
+    diametros_disponiveis: ['1/2"', '5/8"', '3/4"', '7/8"', '1"', '1.1/4"', '1.1/2"', '1.3/4"', '2"'],
+    comprimento_padrao_mm: 6000,
+    densidade_g_cm3: 7.85,
+    fornecedor_homologado: 'Gerdau Usina Ouro Branco',
+    observacoes: 'Aço cromo-molibdênio para parafusos ASTM A193 B7 e classe 10.9 de alta responsabilidade.'
+  },
+  {
+    id: 'mat-07',
+    codigo: 'INOX-304',
+    tipo_material: 'Barra de aço redonda',
+    especificacao_aco: 'AISI 304',
+    cor_primaria_nome: 'Amarelo',
+    cor_primaria_hex: '#eab308',
+    is_bicolor: false,
+    diametros_disponiveis: ['1/4"', '5/16"', '3/8"', '1/2"', '5/8"', '3/4"', '1"'],
+    comprimento_padrao_mm: 6000,
+    densidade_g_cm3: 7.93,
+    fornecedor_homologado: 'Aperam South America',
+    observacoes: 'Aço inoxidável austenítico grau A2-70 com excelente resistência à corrosão.'
+  },
+  {
+    id: 'mat-08',
+    codigo: 'INOX-310',
+    tipo_material: 'Barra de aço redonda',
+    especificacao_aco: 'AISI 310',
+    cor_primaria_nome: 'Azul Escuro / Preto',
+    cor_primaria_hex: '#0f172a',
+    is_bicolor: false,
+    diametros_disponiveis: ['1/2"', '5/8"', '3/4"', '1"', '1.1/4"'],
+    comprimento_padrao_mm: 6000,
+    densidade_g_cm3: 7.98,
+    fornecedor_homologado: 'Aperam South America',
+    observacoes: 'Aço inoxidável refratário para ambientes térmicos severos e fornos até 1150°C.'
+  },
+  {
+    id: 'mat-09',
+    codigo: 'INOX-320',
+    tipo_material: 'Barra de aço redonda',
+    especificacao_aco: 'AISI 320',
+    cor_primaria_nome: 'Branco Neve',
+    cor_primaria_hex: '#f8fafc',
+    is_bicolor: false,
+    diametros_disponiveis: ['1/2"', '5/8"', '3/4"', '1"'],
+    comprimento_padrao_mm: 6000,
+    densidade_g_cm3: 7.95,
+    fornecedor_homologado: 'Aperam / Sandvik',
+    observacoes: 'Inox austenítico especial com resistência superior a soluções ácidas.'
+  },
+  {
+    id: 'mat-10',
+    codigo: 'INOX-316',
+    tipo_material: 'Barra de aço redonda',
+    especificacao_aco: 'AISI 316',
+    cor_primaria_nome: 'Vermelho Carmesim',
+    cor_primaria_hex: '#b91c1c',
+    is_bicolor: false,
+    diametros_disponiveis: ['1/4"', '3/8"', '1/2"', '5/8"', '3/4"', '7/8"', '1"', '1.1/4"'],
+    comprimento_padrao_mm: 6000,
+    densidade_g_cm3: 8.0,
+    fornecedor_homologado: 'Aperam South America',
+    observacoes: 'Aço inox austenítico com molibdênio grau A4-80 para plantas químicas e offshore.'
+  },
+  {
+    id: 'mat-11',
+    codigo: 'INOX-420',
+    tipo_material: 'Barra de aço redonda',
+    especificacao_aco: 'AISI 420',
+    cor_primaria_nome: 'Verde Médio',
+    cor_primaria_hex: '#15803d',
+    is_bicolor: false,
+    diametros_disponiveis: ['1/2"', '5/8"', '3/4"', '1"'],
+    comprimento_padrao_mm: 6000,
+    densidade_g_cm3: 7.75,
+    fornecedor_homologado: 'Villares Metals',
+    observacoes: 'Aço inoxidável martensítico temperável para peças mecânicas de alta dureza.'
+  },
+  {
+    id: 'mat-12',
+    codigo: 'INOX-321',
+    tipo_material: 'Barra de aço redonda',
+    especificacao_aco: 'AISI 321',
+    cor_primaria_nome: 'Ciano / Azul Claro',
+    cor_primaria_hex: '#06b6d4',
+    is_bicolor: false,
+    diametros_disponiveis: ['3/8"', '1/2"', '5/8"', '3/4"', '1"'],
+    comprimento_padrao_mm: 6000,
+    densidade_g_cm3: 7.92,
+    fornecedor_homologado: 'Aperam South America',
+    observacoes: 'Aço inox estabilizado com Titânio para resistir à corrosão intergranular.'
+  }
+];
+
+export function getSavedRawMaterials(): RawMaterialItem[] {
+  if (typeof window === 'undefined') return DEFAULT_RAW_MATERIALS;
+  try {
+    const raw = localStorage.getItem('deltafix_raw_materials');
+    if (!raw) {
+      localStorage.setItem('deltafix_raw_materials', JSON.stringify(DEFAULT_RAW_MATERIALS));
+      return DEFAULT_RAW_MATERIALS;
+    }
+    return JSON.parse(raw);
+  } catch {
+    return DEFAULT_RAW_MATERIALS;
+  }
+}
+
+export function saveRawMaterial(mat: RawMaterialItem): RawMaterialItem[] {
+  const list = getSavedRawMaterials();
+  const idx = list.findIndex((m) => m.id === mat.id || m.especificacao_aco === mat.especificacao_aco);
+  let updated: RawMaterialItem[];
+  if (idx >= 0) {
+    updated = [...list];
+    updated[idx] = mat;
+  } else {
+    updated = [mat, ...list];
+  }
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('deltafix_raw_materials', JSON.stringify(updated));
+  }
+  return updated;
+}
+
+export function deleteRawMaterial(id: string): RawMaterialItem[] {
+  const list = getSavedRawMaterials();
+  const filtered = list.filter((m) => m.id !== id);
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('deltafix_raw_materials', JSON.stringify(filtered));
+  }
+  return filtered;
 }

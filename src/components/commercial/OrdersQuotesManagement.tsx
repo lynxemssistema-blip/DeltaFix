@@ -34,7 +34,9 @@ import {
   Building,
   User,
   ShieldAlert,
-  Download
+  Download,
+  LayoutGrid,
+  Table as TableIcon
 } from 'lucide-react';
 
 const STATUS_CONFIG: Record<
@@ -82,6 +84,7 @@ export function OrdersQuotesManagement() {
   const [orders, setOrders] = useState<SalesOrderQuote[]>([]);
   const [companies, setCompanies] = useState<CompanyPartner[]>([]);
   const [activeTabStatus, setActiveTabStatus] = useState<'all' | OrderStatus>('all');
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOrderDetails, setSelectedOrderDetails] = useState<SalesOrderQuote | null>(null);
@@ -369,20 +372,53 @@ export function OrdersQuotesManagement() {
         })}
       </div>
 
-      {/* Search Input */}
-      <div className="relative w-full max-w-md">
-        <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-500" />
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Filtrar por código de cotação/pedido, cliente ou descrição do fixador..."
-          className="w-full bg-slate-900 border border-slate-700/80 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-        />
+      {/* Search Input & View Mode Toggle */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="relative w-full max-w-md">
+          <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-500" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Filtrar por código de cotação/pedido, cliente ou descrição do fixador..."
+            className="w-full bg-slate-900 border border-slate-700/80 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+          />
+        </div>
+
+        {/* View Mode Toggle */}
+        <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800 shrink-0 self-end sm:self-auto">
+          <button
+            type="button"
+            onClick={() => setViewMode('cards')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+              viewMode === 'cards'
+                ? 'bg-cyan-950 text-cyan-300 border border-cyan-700 shadow-md'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+            title="Exibir em formato de Cards"
+          >
+            <LayoutGrid className="w-3.5 h-3.5" />
+            <span>Cards</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('table')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+              viewMode === 'table'
+                ? 'bg-cyan-950 text-cyan-300 border border-cyan-700 shadow-md'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+            title="Exibir em formato de Tabela detalhada"
+          >
+            <TableIcon className="w-3.5 h-3.5" />
+            <span>Tabela</span>
+          </button>
+        </div>
       </div>
 
-      {/* Orders List / Cards */}
-      <div className="space-y-3">
+      {/* Orders List: Cards or Table */}
+      {viewMode === 'cards' ? (
+        <div className="space-y-3">
         {filteredOrders.map((ord) => {
           const cfg = STATUS_CONFIG[ord.status];
           const Icon = cfg.icon;
@@ -488,6 +524,113 @@ export function OrdersQuotesManagement() {
           </div>
         )}
       </div>
+      ) : (
+        /* VISUALIZAÇÃO EM TABELA COMPLETA DE PEDIDOS / COTAÇÕES */
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-300">
+              <thead className="bg-slate-950 text-[10px] font-mono uppercase text-slate-400 border-b border-slate-800 sticky top-0">
+                <tr>
+                  <th className="py-3 px-4">Código / Tipo</th>
+                  <th className="py-3 px-4">Status no Pipeline</th>
+                  <th className="py-3 px-4">Empresa Cliente / CNPJ</th>
+                  <th className="py-3 px-4">Data Abertura</th>
+                  <th className="py-3 px-4">Prazo / Condição</th>
+                  <th className="py-3 px-4">Itens (Qtd)</th>
+                  <th className="py-3 px-4 font-mono">Valor Total (R$)</th>
+                  <th className="py-3 px-4 text-right">Avançar / Ver</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/80 font-sans">
+                {filteredOrders.map((ord) => {
+                  const cfg = STATUS_CONFIG[ord.status];
+                  const Icon = cfg.icon;
+
+                  return (
+                    <tr key={ord.id} className="hover:bg-slate-800/40 transition-colors">
+                      {/* Código Documento & Tipo */}
+                      <td className="py-3 px-4 font-mono font-bold text-cyan-400 whitespace-nowrap">
+                        {ord.codigo_documento}
+                        {ord.op_numero && (
+                          <span className="block text-[10px] text-amber-300 font-mono">
+                            {ord.op_numero}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Status no Pipeline */}
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border inline-flex items-center gap-1 ${cfg.bg} ${cfg.text} ${cfg.border}`}
+                        >
+                          <Icon className="w-3 h-3" />
+                          {cfg.label}
+                        </span>
+                      </td>
+
+                      {/* Cliente / CNPJ */}
+                      <td className="py-3 px-4">
+                        <div className="font-bold text-white leading-snug">{ord.company_name}</div>
+                        <div className="text-[10px] font-mono text-slate-500">{ord.cnpj}</div>
+                      </td>
+
+                      {/* Data Abertura */}
+                      <td className="py-3 px-4 font-mono text-slate-300 whitespace-nowrap">
+                        {new Date(ord.data_abertura).toLocaleDateString('pt-BR')}
+                      </td>
+
+                      {/* Prazo & Condição */}
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <span className="text-cyan-400 font-bold">{ord.prazo_dias} dias</span>
+                        <span className="block text-[10px] text-slate-400">{ord.condicao_pagamento}</span>
+                      </td>
+
+                      {/* Itens */}
+                      <td className="py-3 px-4">
+                        <span className="font-bold text-slate-200">{ord.itens.length} item(ns)</span>
+                        <div className="text-[10px] text-slate-400 max-w-xs truncate">
+                          {ord.itens.map((i) => i.descricao).join(', ')}
+                        </div>
+                      </td>
+
+                      {/* Valor Total */}
+                      <td className="py-3 px-4 font-mono font-bold text-emerald-400 whitespace-nowrap">
+                        R$ {ord.valor_total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </td>
+
+                      {/* Ações */}
+                      <td className="py-3 px-4 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <select
+                            value={ord.status}
+                            onChange={(e) => handleStatusChange(ord.id, e.target.value as OrderStatus)}
+                            className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-cyan-500 font-bold"
+                          >
+                            <option value="cotacao_enviada">1. Cotação</option>
+                            <option value="aprovado_cliente">2. Aprovado</option>
+                            <option value="em_fabricacao">3. Fabricação</option>
+                            <option value="pronto_cq">4. Pronto/CQ</option>
+                            <option value="faturado_expedido">5. Faturado</option>
+                          </select>
+
+                          <button
+                            type="button"
+                            onClick={() => setSelectedOrderDetails(ord)}
+                            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-400"
+                            title="Ver detalhes"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* =========================================================================
           MODAL DE NOVA COTAÇÃO / PEDIDO INDUSTRIAL
