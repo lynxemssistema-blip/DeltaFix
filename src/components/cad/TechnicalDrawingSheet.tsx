@@ -80,6 +80,14 @@ export function TechnicalDrawingSheet({
   const [selectedCota, setSelectedCota] = useState<string | null>('L');
   const [isExporting, setIsExporting] = useState(false);
 
+  // Revision Control State (Editable on title block & command bar)
+  const [revision, setRevision] = useState<string>('01');
+  const [revisionDate, setRevisionDate] = useState<string>(new Date().toLocaleDateString('pt-BR'));
+  const [revisionAuthor, setRevisionAuthor] = useState<string>('E. Silva');
+  const [revisionApprover, setRevisionApprover] = useState<string>('Eng. Delta');
+  const [revisionDesc, setRevisionDesc] = useState<string>('Emissão Inicial para Fabricação & Corte');
+  const [isRevModalOpen, setIsRevModalOpen] = useState<boolean>(false);
+
   // Auto-fit function: fits the entire A3 sheet inside the viewport
   const fitToScreen = useCallback(() => {
     if (!viewportRef.current) return;
@@ -106,8 +114,8 @@ export function TechnicalDrawingSheet({
     const targetScale = 1.15;
     setScale(targetScale);
 
-    const partCenterX = 540;
-    const partCenterY = 460;
+    const partCenterX = 510;
+    const partCenterY = 480;
 
     const targetPanX = clientWidth / 2 - partCenterX * targetScale;
     const targetPanY = clientHeight / 2 - partCenterY * targetScale;
@@ -179,17 +187,32 @@ export function TechnicalDrawingSheet({
   const partHeightMm = isWasher ? d2 : Math.max(s, dk, d);
   const frontViewWidthMm = isWasher ? d2 : e;
 
-  // Target Drafting Scale (px per mm)
-  let draftingScale = 2.0;
+  // Constructive details for all standards
+  const socketDepth = dimension.profundidade_sextavado || (
+    isAllen ? Math.max(Math.round(k * 0.5), 4) :
+    isCountersunk ? Math.max(Math.round(k * 0.55), 3) :
+    0
+  );
+  const wallThickness = isAllen || isCountersunk ? Math.max(k - socketDepth, 2) : 0;
+  const underheadRadius = dimension.raio_transicao || (d >= 20 ? 0.8 : d >= 12 ? 0.6 : 0.4);
+  const collarHeight = dimension.colar_cabeca || (isBolt && !isAllen && !isCountersunk ? 0.6 : 0);
+  const collarDia = dimension.diametro_assentamento || Number((s - 0.5).toFixed(1));
+  const endChamferZ = dimension.chanfro_ponta || Number((P * 0.75).toFixed(1));
+
+  // Tarugo bruto calculation: FROM BACK OF HEAD TO SAW CUT LINE
+  const L_tarugo = (isCountersunk ? L : (k + L)) + sobremetal;
+
+  // Target Drafting Scale (px per mm) - Generously fills the A3 sheet
+  let draftingScale = 2.4;
   let draftingScaleLabel = '1:1';
 
   if (isBolt || isStud) {
-    const targetW = 720;
-    const targetH = 340;
+    const targetW = 920;
+    const targetH = 440;
     const scaleFromW = targetW / (partLengthMm + frontViewWidthMm + 45);
     const scaleFromH = targetH / (partHeightMm * 2.2);
     const optimalScale = Math.min(scaleFromW, scaleFromH);
-    draftingScale = Math.min(Math.max(optimalScale, 1.0), 5.5);
+    draftingScale = Math.min(Math.max(optimalScale, 1.2), 6.5);
 
     if (draftingScale >= 3.6) draftingScaleLabel = '5:1';
     else if (draftingScale >= 1.7) draftingScaleLabel = '2:1';
@@ -197,10 +220,10 @@ export function TechnicalDrawingSheet({
     else if (draftingScale >= 0.45) draftingScaleLabel = '1:2';
     else draftingScaleLabel = '1:5';
   } else if (isNut) {
-    draftingScale = Math.min(Math.max(380 / (s * 2.2), 1.5), 6.0);
+    draftingScale = Math.min(Math.max(480 / (s * 2.2), 2.0), 7.0);
     draftingScaleLabel = draftingScale >= 3.5 ? '5:1' : draftingScale >= 1.8 ? '2:1' : '1:1';
   } else if (isWasher) {
-    draftingScale = Math.min(Math.max(380 / (d2 * 1.8), 1.5), 6.0);
+    draftingScale = Math.min(Math.max(480 / (d2 * 1.8), 2.0), 7.0);
     draftingScaleLabel = draftingScale >= 3.5 ? '5:1' : draftingScale >= 1.8 ? '2:1' : '1:1';
   }
 
@@ -216,10 +239,14 @@ export function TechnicalDrawingSheet({
   const scD2 = d2 * draftingScale;
   const scThick = thickness * draftingScale;
   const scCut = sobremetal * draftingScale; // Sobremetal em pixels
+  const scSocketT = socketDepth * draftingScale;
+  const scCollarH = collarHeight * draftingScale;
+  const scCollarD = collarDia * draftingScale;
+  const scChamferZ = endChamferZ * draftingScale;
 
-  // Coordinated View Centers (Drafting Centerline at Y = 460)
-  const centerlineY = 460;
-  const draftingCenterX = 540;
+  // Coordinated View Centers (Drafting Centerline at Y = 490)
+  const centerlineY = 490;
+  const draftingCenterX = 510;
 
   const viewGap = Math.max(160, 45 * draftingScale);
 
@@ -247,12 +274,16 @@ export function TechnicalDrawingSheet({
     ? boltOriginX + scK + viewGap
     : boltOriginX + scThick + viewGap;
 
+  // Start and End X coordinates of raw tarugo blank
+  const tarugoStartX = isCountersunk ? boltOriginX : (boltOriginX - scK);
+  const tarugoEndX = boltOriginX + scL + scCut;
+
   const handleCotaSelect = (cota: string) => {
     setSelectedCota(cota);
     if (onDimensionClick) onDimensionClick(cota);
   };
 
-  // High-Definition PDF Export
+  // High-Definition PDF Export with explicit Blob download (Prevents missing extension)
   const handleExportPDF = async () => {
     setIsExporting(true);
     try {
@@ -274,7 +305,25 @@ export function TechnicalDrawingSheet({
       });
 
       pdf.addImage(imgData, 'PNG', 0, 0, 420, 297);
-      pdf.save(`DeltaFix_Prancha_A3_${product.sku_gerado}.pdf`);
+      const safeSku = (product.sku_gerado || 'PRODUTO').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const filename = `DeltaFix_Prancha_A3_${safeSku}.pdf`;
+
+      try {
+        const pdfBlob = pdf.output('blob');
+        const blobUrl = URL.createObjectURL(pdfBlob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.setAttribute('download', filename);
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => {
+          document.body.removeChild(link);
+          URL.revokeObjectURL(blobUrl);
+        }, 1500);
+      } catch (_) {
+        pdf.save(filename);
+      }
     } catch (err) {
       console.error('Error generating PDF:', err);
       alert('Erro ao exportar PDF da prancha técnica.');
@@ -307,8 +356,17 @@ export function TechnicalDrawingSheet({
           </span>
         </div>
 
-        {/* Viewport Control Tools (Pan, Zoom, Focus, Fullscreen, PDF) */}
+        {/* Viewport Control Tools (Pan, Zoom, Focus, Fullscreen, Revision, PDF) */}
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsRevModalOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 rounded font-bold transition-colors border border-amber-500/40"
+            title="Editar Controle de Revisão da Prancha (Legenda ABNT)"
+          >
+            <span>📝 REV {revision}</span>
+          </button>
+
           <button
             type="button"
             onClick={fitToScreen}
@@ -534,25 +592,6 @@ export function TechnicalDrawingSheet({
               {/* ============================================================== */}
               {/* ZONE 2: DYNAMIC CENTRAL MECHANICAL DRAWING                     */}
               {/* ============================================================== */}
-              {/* Centerlines */}
-              <line
-                x1={boltOriginX - (isBolt ? scK + 60 : 60)}
-                y1={centerlineY}
-                x2={frontViewX + (isWasher ? scD2 / 2 + 50 : scE / 2 + 50)}
-                y2={centerlineY}
-                stroke="#000000"
-                strokeWidth="0.8"
-                strokeDasharray="18, 4, 3, 4"
-              />
-              <line
-                x1={frontViewX}
-                y1={centerlineY - (isWasher ? scD2 / 2 + 40 : scE / 2 + 40)}
-                x2={frontViewX}
-                y2={centerlineY + (isWasher ? scD2 / 2 + 40 : scE / 2 + 40)}
-                stroke="#000000"
-                strokeWidth="0.8"
-                strokeDasharray="18, 4, 3, 4"
-              />
 
               {/* -------------------------------------------------------------- */}
               {/* PARAFUSOS: DIN 933, DIN 931, DIN 912, DIN 7991, ASTM A325       */}
@@ -908,46 +947,46 @@ export function TechnicalDrawingSheet({
                     </text>
                   </g>
 
-                  {/* COTA DE PROCESSO MES: COMPRIMENTO DE CORTE COM SOBREMETAL */}
+                  {/* COTA DE PROCESSO MES: COMPRIMENTO DE CORTE COM SOBREMETAL (TARUGO BRUTO TOTAL) */}
                   {sobremetal > 0 && (
                     <g className="cursor-pointer" onClick={() => handleCotaSelect('L_corte')}>
                       <line
-                        x1={boltOriginX}
-                        y1={centerlineY + Math.max(scS, scDk, scD) / 2 + 82}
-                        x2={boltOriginX + scL + scCut}
-                        y2={centerlineY + Math.max(scS, scDk, scD) / 2 + 82}
+                        x1={tarugoStartX}
+                        y1={centerlineY + Math.max(scS, scDk, scD) / 2 + 86}
+                        x2={tarugoEndX}
+                        y2={centerlineY + Math.max(scS, scDk, scD) / 2 + 86}
                         stroke="#b91c1c"
-                        strokeWidth="1.0"
+                        strokeWidth="1.2"
                         markerStart="url(#sharpArrowRed)"
                         markerEnd="url(#sharpArrowRed)"
                       />
                       <line
-                        x1={boltOriginX}
-                        y1={centerlineY + Math.max(scS, scDk, scD) / 2 + 55}
-                        x2={boltOriginX}
-                        y2={centerlineY + Math.max(scS, scDk, scD) / 2 + 94}
+                        x1={tarugoStartX}
+                        y1={centerlineY + (isCountersunk ? scDk / 2 : scS / 2) + 6}
+                        x2={tarugoStartX}
+                        y2={centerlineY + Math.max(scS, scDk, scD) / 2 + 98}
                         stroke="#b91c1c"
-                        strokeWidth="0.6"
+                        strokeWidth="0.7"
                       />
                       <line
-                        x1={boltOriginX + scL + scCut}
+                        x1={tarugoEndX}
                         y1={centerlineY + scD / 2}
-                        x2={boltOriginX + scL + scCut}
-                        y2={centerlineY + Math.max(scS, scDk, scD) / 2 + 94}
+                        x2={tarugoEndX}
+                        y2={centerlineY + Math.max(scS, scDk, scD) / 2 + 98}
                         stroke="#b91c1c"
-                        strokeWidth="0.6"
+                        strokeWidth="0.7"
                         strokeDasharray="4,2"
                       />
                       <text
-                        x={boltOriginX + (scL + scCut) / 2}
-                        y={centerlineY + Math.max(scS, scDk, scD) / 2 + 75}
+                        x={tarugoStartX + (tarugoEndX - tarugoStartX) / 2}
+                        y={centerlineY + Math.max(scS, scDk, scD) / 2 + 78}
                         textAnchor="middle"
                         fill="#b91c1c"
                         fontSize="14"
                         fontWeight="700"
                         className="font-engineer"
                       >
-                        L corte = {L + sobremetal} mm (Sobremetal +{sobremetal}mm)
+                        L corte = {L_tarugo} mm ({isCountersunk ? `L ${L} + corte ${sobremetal}` : `k ${k} + L ${L} + corte ${sobremetal}`})
                       </text>
                     </g>
                   )}
@@ -1337,17 +1376,191 @@ export function TechnicalDrawingSheet({
               )}
 
               {/* ============================================================== */}
-              {/* ZONE 3: FACTORY FLOOR TOLERANCE TABLE (CANTO SUPERIOR DIR)     */}
+              {/* LINHAS DE CENTRO À FRENTE DO DESENHO (SOBREPOSTAS À GEOMETRIA) */}
+              {/* ============================================================== */}
+              <g id="centerlines-layer">
+                {/* Horizontal Centerline across longitudinal body */}
+                <line
+                  x1={boltOriginX - (isBolt ? scK + 70 : 70)}
+                  y1={centerlineY}
+                  x2={frontViewX + (isWasher ? scD2 / 2 + 55 : scE / 2 + 55)}
+                  y2={centerlineY}
+                  stroke="#000000"
+                  strokeWidth="1.0"
+                  strokeDasharray="24, 4, 3, 4"
+                />
+                {/* Vertical Centerline across front view */}
+                <line
+                  x1={frontViewX}
+                  y1={centerlineY - (isWasher ? scD2 / 2 + 45 : scE / 2 + 45)}
+                  x2={frontViewX}
+                  y2={centerlineY + (isWasher ? scD2 / 2 + 45 : scE / 2 + 45)}
+                  stroke="#000000"
+                  strokeWidth="1.0"
+                  strokeDasharray="24, 4, 3, 4"
+                />
+              </g>
+
+              {/* ============================================================== */}
+              {/* ZONE 3A: VISTA ISOMÉTRICA 3D (AXONOMÉTRICA 30°)                */}
               {/* ============================================================== */}
               <g transform="translate(1069, 38)">
-                <rect x="0" y="0" width="480" height="220" fill="#ffffff" stroke="#000000" strokeWidth="2.2" />
-                <rect x="0" y="0" width="480" height="32" fill="#f8fafc" stroke="#000000" strokeWidth="1.4" />
+                {/* Outer Framing */}
+                <rect x="0" y="0" width="480" height="260" fill="#ffffff" stroke="#000000" strokeWidth="2.2" />
+                <rect x="0" y="0" width="480" height="28" fill="#f8fafc" stroke="#000000" strokeWidth="1.2" />
                 <text
                   x="240"
-                  y="21"
+                  y="19"
                   textAnchor="middle"
                   fill="#000000"
-                  fontSize="12.5"
+                  fontSize="11.5"
+                  fontWeight="800"
+                  className="font-iso"
+                  letterSpacing="0.05em"
+                >
+                  VISTA ISOMÉTRICA 3D (PROJEÇÃO AXONOMÉTRICA 30°)
+                </text>
+
+                {/* Isometric Coordinate Triad (X, Y, Z) */}
+                <g transform="translate(36, 68)">
+                  <line x1="0" y1="0" x2="0" y2="-28" stroke="#000000" strokeWidth="1.4" markerEnd="url(#sharpArrow)" />
+                  <text x="5" y="-22" fill="#000000" fontSize="9" fontWeight="700" className="font-iso">Z</text>
+                  <line x1="0" y1="0" x2="26" y2="15" stroke="#000000" strokeWidth="1.4" markerEnd="url(#sharpArrow)" />
+                  <text x="30" y="20" fill="#000000" fontSize="9" fontWeight="700" className="font-iso">X</text>
+                  <line x1="0" y1="0" x2="-26" y2="15" stroke="#000000" strokeWidth="1.4" markerEnd="url(#sharpArrow)" />
+                  <text x="-36" y="20" fill="#000000" fontSize="9" fontWeight="700" className="font-iso">Y</text>
+                  <circle cx="0" cy="0" r="2.5" fill="#000000" />
+                </g>
+
+                {/* 3D Isometric Projection Geometry */}
+                <g transform="translate(230, 140)">
+                  {isAllen ? (
+                    // 3D Isometric View: Allen Bolt (DIN 912)
+                    <g>
+                      {/* Cylindrical Head */}
+                      <path
+                        d="M -70,-35 L -35,-55 L 15,-26 L -20,-6 Z"
+                        fill="#f1f5f9"
+                        stroke="#000000"
+                        strokeWidth="1.6"
+                      />
+                      <path
+                        d="M -70,-35 L -70,25 L -20,54 L -20,-6 Z"
+                        fill="#cbd5e1"
+                        stroke="#000000"
+                        strokeWidth="1.6"
+                      />
+                      <path
+                        d="M -20,-6 L -20,54 L 15,34 L 15,-26 Z"
+                        fill="#e2e8f0"
+                        stroke="#000000"
+                        strokeWidth="1.6"
+                      />
+                      {/* Hexagonal Socket Cavity 3D on Top Face */}
+                      <polygon
+                        points="-38,-42 -22,-51 -6,-37 -6,-23 -22,-14 -38,-28"
+                        fill="#1e293b"
+                        stroke="#000000"
+                        strokeWidth="1.4"
+                      />
+                      {/* 3D Shank Body */}
+                      <path
+                        d="M 15,-10 L 140,62 L 140,92 L 15,20 Z"
+                        fill="#e2e8f0"
+                        stroke="#000000"
+                        strokeWidth="1.6"
+                      />
+                      {/* Helical Thread Crests */}
+                      <line x1="50" y1="10" x2="50" y2="40" stroke="#000000" strokeWidth="1.2" />
+                      <line x1="75" y1="24" x2="75" y2="54" stroke="#000000" strokeWidth="1.2" />
+                      <line x1="100" y1="39" x2="100" y2="69" stroke="#000000" strokeWidth="1.2" />
+                      <line x1="125" y1="53" x2="125" y2="83" stroke="#000000" strokeWidth="1.2" />
+                      {/* Tip Chamfer 3D */}
+                      <polygon points="140,62 155,71 155,83 140,92" fill="#cbd5e1" stroke="#000000" strokeWidth="1.4" />
+                    </g>
+                  ) : isNut ? (
+                    // 3D Isometric View: Hex Nut (DIN 934 / 985)
+                    <g transform="scale(1.2)">
+                      <polygon points="-40,-20 0,-43 40,-20 40,20 0,43 -40,20" fill="#e2e8f0" stroke="#000000" strokeWidth="1.8" />
+                      <polygon points="-40,-20 0,-43 0,-10 -40,13" fill="#f8fafc" stroke="#000000" strokeWidth="1.2" />
+                      <polygon points="0,-43 40,-20 40,13 0,-10" fill="#f1f5f9" stroke="#000000" strokeWidth="1.2" />
+                      <polygon points="-40,13 0,-10 0,43 -40,20" fill="#cbd5e1" stroke="#000000" strokeWidth="1.2" />
+                      <polygon points="0,-10 40,13 40,20 0,43" fill="#94a3b8" stroke="#000000" strokeWidth="1.2" />
+                      <ellipse cx="0" cy="0" rx="18" ry="10" fill="#0f172a" stroke="#000000" strokeWidth="1.4" />
+                      <ellipse cx="0" cy="0" rx="14" ry="7.5" fill="none" stroke="#38bdf8" strokeWidth="0.8" strokeDasharray="3,1" />
+                    </g>
+                  ) : isWasher ? (
+                    // 3D Isometric View: Washer (DIN 125)
+                    <g transform="scale(1.2)">
+                      <ellipse cx="0" cy="6" rx="55" ry="28" fill="#cbd5e1" stroke="#000000" strokeWidth="1.6" />
+                      <ellipse cx="0" cy="0" rx="55" ry="28" fill="#f1f5f9" stroke="#000000" strokeWidth="1.8" />
+                      <ellipse cx="0" cy="0" rx="26" ry="13" fill="#ffffff" stroke="#000000" strokeWidth="1.6" />
+                    </g>
+                  ) : isStud ? (
+                    // 3D Isometric View: Stud Bolt (ASTM A193 B7)
+                    <g>
+                      <path d="M -90,-20 L 100,89 L 100,119 L -90,10 Z" fill="#e2e8f0" stroke="#000000" strokeWidth="1.6" />
+                      <ellipse cx="-90" cy="-5" rx="12" ry="15" fill="#f1f5f9" stroke="#000000" strokeWidth="1.4" />
+                      <ellipse cx="100" cy="104" rx="12" ry="15" fill="#cbd5e1" stroke="#000000" strokeWidth="1.4" />
+                      {[-60, -30, 0, 30, 60].map((step, i) => (
+                        <line key={i} x1={step} y1={step * 0.58 + 32} x2={step} y2={step * 0.58 + 62} stroke="#000000" strokeWidth="1.2" />
+                      ))}
+                    </g>
+                  ) : (
+                    // 3D Isometric View: Standard Hex Bolt (DIN 933/931, ASTM A325, ABNT NBR 10115)
+                    <g>
+                      {/* Hex Head Facet 1 (Top / Light) */}
+                      <polygon points="-75,-32 -40,-52 -10,-35 -45,-15" fill="#f8fafc" stroke="#000000" strokeWidth="1.6" />
+                      {/* Hex Head Facet 2 (Front Left / Darker) */}
+                      <polygon points="-75,-32 -45,-15 -45,35 -75,18" fill="#cbd5e1" stroke="#000000" strokeWidth="1.6" />
+                      {/* Hex Head Facet 3 (Front Right / Medium) */}
+                      <polygon points="-45,-15 -10,-35 -10,15 -45,35" fill="#e2e8f0" stroke="#000000" strokeWidth="1.6" />
+                      {/* Washer Face Collar Underhead */}
+                      <polygon points="-10,-35 -5,-32 -5,18 -10,15" fill="#94a3b8" stroke="#000000" strokeWidth="1.0" />
+                      {/* 3D Shank Body */}
+                      <path
+                        d="M -5,-12 L 130,66 L 130,96 L -5,18 Z"
+                        fill="#f1f5f9"
+                        stroke="#000000"
+                        strokeWidth="1.6"
+                      />
+                      {/* Helical Thread Crests */}
+                      <line x1="30" y1="8" x2="30" y2="38" stroke="#000000" strokeWidth="1.3" />
+                      <line x1="55" y1="22" x2="55" y2="52" stroke="#000000" strokeWidth="1.3" />
+                      <line x1="80" y1="37" x2="80" y2="67" stroke="#000000" strokeWidth="1.3" />
+                      <line x1="105" y1="51" x2="105" y2="81" stroke="#000000" strokeWidth="1.3" />
+                      {/* Tip Chamfer 3D */}
+                      <polygon points="130,66 145,75 145,87 130,96" fill="#cbd5e1" stroke="#000000" strokeWidth="1.4" />
+                    </g>
+                  )}
+                </g>
+
+                {/* Subtitle Badge */}
+                <text
+                  x="240"
+                  y="248"
+                  textAnchor="middle"
+                  fill="#475569"
+                  fontSize="9.5"
+                  fontWeight="600"
+                  className="font-iso"
+                >
+                  REPRESENTAÇÃO CONSTRUTIVA ISO 128 (SEM ESCALA RIGOROSA)
+                </text>
+              </g>
+
+              {/* ============================================================== */}
+              {/* ZONE 3B: FACTORY FLOOR TOLERANCE TABLE (CANTO SUPERIOR DIR)    */}
+              {/* ============================================================== */}
+              <g transform="translate(1069, 310)">
+                <rect x="0" y="0" width="480" height="235" fill="#ffffff" stroke="#000000" strokeWidth="2.2" />
+                <rect x="0" y="0" width="480" height="28" fill="#f8fafc" stroke="#000000" strokeWidth="1.2" />
+                <text
+                  x="240"
+                  y="19"
+                  textAnchor="middle"
+                  fill="#000000"
+                  fontSize="11.5"
                   fontWeight="800"
                   className="font-iso"
                   letterSpacing="0.05em"
@@ -1355,13 +1568,13 @@ export function TechnicalDrawingSheet({
                   TOLERÂNCIAS DE CHÃO DE FÁBRICA (CQ)
                 </text>
 
-                <rect x="0" y="32" width="480" height="24" fill="#ffffff" stroke="#000000" strokeWidth="1.0" />
-                <text x="12" y="48" fill="#000000" fontSize="10.5" fontWeight="700" className="font-iso">COTAS CRÍTICAS</text>
-                <text x="160" y="48" fill="#000000" fontSize="10.5" fontWeight="700" className="font-iso">TOLERÂNCIA (MÍN / MÁX)</text>
-                <text x="340" y="48" fill="#000000" fontSize="10.5" fontWeight="700" className="font-iso">INSTRUMENTO</text>
+                <rect x="0" y="28" width="480" height="22" fill="#ffffff" stroke="#000000" strokeWidth="1.0" />
+                <text x="12" y="43" fill="#000000" fontSize="10" fontWeight="700" className="font-iso">COTAS CRÍTICAS</text>
+                <text x="160" y="43" fill="#000000" fontSize="10" fontWeight="700" className="font-iso">TOLERÂNCIA (MÍN / MÁX)</text>
+                <text x="340" y="43" fill="#000000" fontSize="10" fontWeight="700" className="font-iso">INSTRUMENTO</text>
 
-                <line x1="150" y1="32" x2="150" y2="220" stroke="#000000" strokeWidth="1.0" />
-                <line x1="330" y1="32" x2="330" y2="220" stroke="#000000" strokeWidth="1.0" />
+                <line x1="150" y1="28" x2="150" y2="235" stroke="#000000" strokeWidth="1.0" />
+                <line x1="330" y1="28" x2="330" y2="235" stroke="#000000" strokeWidth="1.0" />
 
                 {[
                   { cota: `Corpo (d = Ø${d})`, tol: `${(d - 0.28).toFixed(2)} / ${d.toFixed(2)} mm (h13)`, inst: 'Micrômetro 0.001mm' },
@@ -1369,15 +1582,15 @@ export function TechnicalDrawingSheet({
                   { cota: `Cabeça (k = ${k})`, tol: `${(k - 0.25).toFixed(2)} / ${(k + 0.25).toFixed(2)} mm (js15)`, inst: 'Relógio Apalpador' },
                   { cota: `Rosca (${P}mm)`, tol: 'Campo 6g / 6H (ISO 965)', inst: 'Calibrador Anel P/NP' },
                   { cota: `Compr. (L = ${L})`, tol: `${L - 1.5} / ${L + 1.5} mm (DIN 78)`, inst: 'Escala / Paquímetro' },
-                  { cota: `Corte Bruto (+${sobremetal})`, tol: `${L + sobremetal - 1.0} / ${L + sobremetal + 1.0} mm`, inst: 'Trena Industrial' }
+                  { cota: `Tarugo Bruto`, tol: `${L_tarugo - 1.0} / ${L_tarugo + 1.0} mm`, inst: 'Trena Industrial' }
                 ].map((row, idx) => {
-                  const y = 56 + idx * 27.2;
+                  const y = 50 + idx * 30.5;
                   return (
                     <g key={idx}>
                       <line x1="0" y1={y} x2="480" y2={y} stroke="#000000" strokeWidth="0.8" />
-                      <text x="12" y={y + 18} fill="#000000" fontSize="11" fontWeight="600" className="font-iso">{row.cota}</text>
-                      <text x="160" y={y + 18} fill="#000000" fontSize="12" fontWeight="700" className="font-engineer">{row.tol}</text>
-                      <text x="340" y={y + 18} fill="#000000" fontSize="10.5" className="font-iso">{row.inst}</text>
+                      <text x="12" y={y + 20} fill="#000000" fontSize="10.5" fontWeight="600" className="font-iso">{row.cota}</text>
+                      <text x="160" y={y + 20} fill="#000000" fontSize="11.5" fontWeight="700" className="font-engineer">{row.tol}</text>
+                      <text x="340" y={y + 20} fill="#000000" fontSize="10" className="font-iso">{row.inst}</text>
                     </g>
                   );
                 })}
@@ -1397,7 +1610,7 @@ export function TechnicalDrawingSheet({
                   <text x="0" y="84">4. PEÇA ISENTA DE REBARBAS, BORDAS CORTANTES E RESÍDUOS DE ÓLEO.</text>
                   <text x="0" y="104">5. ENSAIO DE TRAÇÃO E DUREZA SEGUNDO NBR ISO 898-1 / CQ AQL 0.65.</text>
                   <text x="0" y="124" fill="#b91c1c" fontWeight="700">
-                    6. CORTE DO TARUGO PROGRAMADO: L = {k + L + sobremetal} mm (SOBREMETAL DE CORTE: +{sobremetal} mm).
+                    6. CORTE DO TARUGO PROGRAMADO: L = {L_tarugo} mm (SOBREMETAL DE CORTE: +{sobremetal} mm). TARUGO BRUTO: {isCountersunk ? `L (${L}) + ${sobremetal} mm` : `k (${k}) + L (${L}) + ${sobremetal} mm`}.
                   </text>
                 </g>
               </g>
@@ -1408,18 +1621,21 @@ export function TechnicalDrawingSheet({
               <g transform="translate(969, 854)">
                 <rect x="0" y="0" width="580" height="230" fill="#ffffff" stroke="#000000" strokeWidth="2.8" />
 
-                {/* Revision Bar */}
-                <rect x="0" y="0" width="580" height="24" fill="#f8fafc" stroke="#000000" strokeWidth="1.2" />
-                <text x="20" y="17" textAnchor="middle" fill="#000000" fontSize="10.5" fontWeight="800" className="font-iso">REV</text>
-                <text x="48" y="17" fill="#000000" fontSize="10.5" fontWeight="800" className="font-iso">MODIFICAÇÃO DE ENGENHARIA</text>
-                <text x="445" y="17" textAnchor="middle" fill="#000000" fontSize="10.5" fontWeight="800" className="font-iso">DATA</text>
-                <text x="535" y="17" textAnchor="middle" fill="#000000" fontSize="10.5" fontWeight="800" className="font-iso">AUTOR</text>
+                {/* Revision Bar (Clickable to edit revision) */}
+                <g className="cursor-pointer" onClick={() => setIsRevModalOpen(true)}>
+                  <title>Clique para editar dados da revisão</title>
+                  <rect x="0" y="0" width="580" height="24" fill="#f8fafc" stroke="#000000" strokeWidth="1.2" />
+                  <text x="20" y="17" textAnchor="middle" fill="#000000" fontSize="10.5" fontWeight="800" className="font-iso">REV</text>
+                  <text x="48" y="17" fill="#000000" fontSize="10.5" fontWeight="800" className="font-iso">MODIFICAÇÃO DE ENGENHARIA</text>
+                  <text x="445" y="17" textAnchor="middle" fill="#000000" fontSize="10.5" fontWeight="800" className="font-iso">DATA</text>
+                  <text x="535" y="17" textAnchor="middle" fill="#000000" fontSize="10.5" fontWeight="800" className="font-iso">AUTOR</text>
 
-                <rect x="0" y="24" width="580" height="26" fill="#ffffff" stroke="#000000" strokeWidth="1.0" />
-                <text x="20" y="42" textAnchor="middle" fill="#000000" fontSize="12" fontWeight="700" className="font-engineer">03</text>
-                <text x="48" y="42" fill="#000000" fontSize="12" fontWeight="600" className="font-engineer">Adição de Sobremetal de Corte (+{sobremetal}mm) e Geometria Paramétrica</text>
-                <text x="445" y="42" textAnchor="middle" fill="#000000" fontSize="12" fontWeight="700" className="font-engineer">{new Date().toLocaleDateString('pt-BR')}</text>
-                <text x="535" y="42" textAnchor="middle" fill="#000000" fontSize="12" fontWeight="700" className="font-engineer">E. Silva</text>
+                  <rect x="0" y="24" width="580" height="26" fill="#ffffff" stroke="#000000" strokeWidth="1.0" />
+                  <text x="20" y="42" textAnchor="middle" fill="#b91c1c" fontSize="12.5" fontWeight="800" className="font-engineer">{revision}</text>
+                  <text x="48" y="42" fill="#000000" fontSize="11" fontWeight="600" className="font-engineer">{revisionDesc}</text>
+                  <text x="445" y="42" textAnchor="middle" fill="#000000" fontSize="11.5" fontWeight="700" className="font-engineer">{revisionDate}</text>
+                  <text x="535" y="42" textAnchor="middle" fill="#000000" fontSize="11.5" fontWeight="700" className="font-engineer">{revisionAuthor}</text>
+                </g>
 
                 <line x1="0" y1="50" x2="580" y2="50" stroke="#000000" strokeWidth="2.0" />
 
@@ -1462,7 +1678,7 @@ export function TechnicalDrawingSheet({
 
                 <rect x="410" y="110" width="85" height="42" fill="#ffffff" stroke="#000000" strokeWidth="1.2" />
                 <text x="418" y="123" fill="#000000" fontSize="8" fontWeight="700" className="font-iso">REV:</text>
-                <text x="452" y="143" textAnchor="middle" fill="#000000" fontSize="16" fontWeight="700" className="font-engineer">03</text>
+                <text x="452" y="143" textAnchor="middle" fill="#000000" fontSize="16" fontWeight="700" className="font-engineer">{revision}</text>
 
                 <rect x="495" y="110" width="85" height="42" fill="#ffffff" stroke="#000000" strokeWidth="1.2" />
                 <text x="503" y="123" fill="#000000" fontSize="8" fontWeight="700" className="font-iso">FOLHA:</text>
@@ -1486,11 +1702,11 @@ export function TechnicalDrawingSheet({
 
                 <rect x="190" y="194" width="110" height="36" fill="#ffffff" stroke="#000000" strokeWidth="1.2" />
                 <text x="196" y="206" fill="#000000" fontSize="7.5" fontWeight="700" className="font-iso">ELABORADO:</text>
-                <text x="196" y="222" fill="#000000" fontSize="11" fontWeight="700" className="font-engineer">E. Silva</text>
+                <text x="196" y="222" fill="#000000" fontSize="11" fontWeight="700" className="font-engineer">{revisionAuthor}</text>
 
                 <rect x="300" y="194" width="110" height="36" fill="#ffffff" stroke="#000000" strokeWidth="1.2" />
                 <text x="306" y="206" fill="#000000" fontSize="7.5" fontWeight="700" className="font-iso">APROVADO:</text>
-                <text x="306" y="222" fill="#000000" fontSize="11" fontWeight="700" className="font-engineer">Eng. Delta</text>
+                <text x="306" y="222" fill="#000000" fontSize="11" fontWeight="700" className="font-engineer">{revisionApprover}</text>
 
                 <rect x="410" y="194" width="85" height="36" fill="#ffffff" stroke="#000000" strokeWidth="1.2" />
                 <text x="416" y="206" fill="#000000" fontSize="7.5" fontWeight="700" className="font-iso">ESCALA:</text>
@@ -1508,6 +1724,90 @@ export function TechnicalDrawingSheet({
           </div>
         </div>
       </div>
+
+      {/* Revision Modal Dialog */}
+      {isRevModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-2xl text-slate-100 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <span>📝 Controle de Revisão da Prancha (ABNT / Legenda)</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsRevModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-white rounded"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs font-mono">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-slate-400 block mb-1">Nº Revisão:</label>
+                  <input
+                    type="text"
+                    value={revision}
+                    onChange={(e) => setRevision(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-amber-300 font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="text-slate-400 block mb-1">Data:</label>
+                  <input
+                    type="text"
+                    value={revisionDate}
+                    onChange={(e) => setRevisionDate(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-slate-200"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-slate-400 block mb-1">Descrição da Modificação:</label>
+                <textarea
+                  rows={2}
+                  value={revisionDesc}
+                  onChange={(e) => setRevisionDesc(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-slate-200"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-slate-400 block mb-1">Elaborado por:</label>
+                  <input
+                    type="text"
+                    value={revisionAuthor}
+                    onChange={(e) => setRevisionAuthor(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-slate-200"
+                  />
+                </div>
+                <div>
+                  <label className="text-slate-400 block mb-1">Aprovado por:</label>
+                  <input
+                    type="text"
+                    value={revisionApprover}
+                    onChange={(e) => setRevisionApprover(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-slate-200"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsRevModalOpen(false)}
+                className="px-4 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold rounded text-xs transition-colors"
+              >
+                Salvar Revisão na Prancha
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

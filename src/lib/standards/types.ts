@@ -49,6 +49,12 @@ export interface StandardDimension {
   diametro_interno?: number | null; // d1 (arruela)
   diametro_externo?: number | null; // d2 (arruela)
   espessura?: number | null; // s (arruela)
+  // Riqueza de Detalhes Construtivos Adicionais
+  profundidade_sextavado?: number | null; // t (DIN 912, DIN 7991)
+  raio_transicao?: number | null; // r / da (raio de concordância sob a cabeça)
+  colar_cabeca?: number | null; // c (altura do ressalto sob a cabeça)
+  diametro_assentamento?: number | null; // dw (diâmetro da face de assentamento)
+  chanfro_ponta?: number | null; // z (chanfro da extremidade)
   comprimentos_validos?: number[];
   tolerancias?: Record<string, DimensionTolerance>;
 }
@@ -104,6 +110,12 @@ export interface ProductItem {
   comprimento_rosca_b?: number;
   sobremetal_corte?: number; // Sobremetal de corte em mm (paramétrico)
   geometric_archetype?: GeometricArchetype;
+  // Campos de Cadastro Livre / Peça Especial Sob Desenho (AutoCAD / Anexo)
+  is_custom_special?: boolean;
+  desenho_cliente_ref?: string;
+  anexo_pdf_url?: string;
+  anexo_pdf_nome?: string;
+  observacoes_especiais?: string;
   especificacoes_adicionais?: Record<string, unknown>;
   created_at?: string;
 }

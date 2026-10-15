@@ -223,7 +223,24 @@ export async function generateTechnicalDatasheetPdf(
   doc.setFontSize(8);
   doc.text('[APROVADO ENGENHARIA]', pageWidth - margin - 48, currentY + 11);
 
-  // Save the PDF
-  const filename = `DeltaFix_FolhaTecnica_${product.sku_gerado}.pdf`;
-  doc.save(filename);
+  // Save the PDF with guaranteed .pdf extension via Blob download
+  const safeSku = (product.sku_gerado || 'PRODUTO').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const filename = `DeltaFix_FolhaTecnica_${safeSku}.pdf`;
+
+  try {
+    const pdfBlob = doc.output('blob');
+    const blobUrl = URL.createObjectURL(pdfBlob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.setAttribute('download', filename);
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+    }, 1500);
+  } catch (_) {
+    doc.save(filename);
+  }
 }
